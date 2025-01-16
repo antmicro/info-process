@@ -7,7 +7,7 @@ import argparse
 from parser import Stream, Record, EntryHandler, RemoveRecord
 import re
 
-def two_way_toggle_handler(params: str, file: Record) -> tuple[str, str]:
+def two_way_toggle_handler(prefix: str, params: str, file: Record) -> tuple[str, str]:
     # <LINE NUMBER>,<BLOCK>,<NAME>,<HIT COUNT>
     line_number, block, name, hit_count = params.split(',', 4)
     return (
@@ -15,7 +15,7 @@ def two_way_toggle_handler(params: str, file: Record) -> tuple[str, str]:
         f'{line_number},{block},{name}_1->0,{hit_count}',
     )
 
-def missing_brda_handler(params: str, file: Record) -> str:
+def missing_brda_handler(prefix: str, params: str, file: Record) -> str:
     # <LINE NUMBER>,<HIT COUNT>
     line_number, hit_count = params.split(',', 2)
     if not file.has_entry_for_line('BRDA', line_number):
@@ -24,7 +24,7 @@ def missing_brda_handler(params: str, file: Record) -> str:
 
 def create_filter_handler(pattern: str) -> EntryHandler:
     regex = re.compile(pattern)
-    def handler(path: str, file: Record) -> str:
+    def handler(prefix: str, path: str, file: Record) -> str:
         if regex.search(path):
             return path
         raise RemoveRecord()
@@ -33,7 +33,7 @@ def create_filter_handler(pattern: str) -> EntryHandler:
 
 def create_path_strip_handler(pattern: str) -> EntryHandler:
     regex = re.compile(pattern)
-    def handler(path: str, file: Record) -> str:
+    def handler(prefix: str, path: str, file: Record) -> str:
         # Match the pattern from the start and remove what got matched from the path
         if (m := regex.match(path)):
             return path[m.end():]

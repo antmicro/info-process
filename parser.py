@@ -5,7 +5,7 @@ from typing import TextIO, Callable, Iterable
 
 END_OF_RECORD = 'end_of_record'
 
-EntryHandler = Callable[[str, 'Record'], Iterable[str] | str]
+EntryHandler = Callable[[str, str, 'Record'], Iterable[str] | str]
 
 class RemoveRecord(Exception):
     pass
@@ -26,7 +26,7 @@ class Record:
 
     def add(self, prefix: str, data: str):        
         if prefix in self.stream.handlers:
-            for processed in self._run_handlers(self.stream.handlers[prefix], data):
+            for processed in self._run_handlers(self.stream.handlers[prefix], prefix, data):
                 self._add_entry(prefix, processed)
         else:
             self._add_entry(prefix, data)
@@ -43,7 +43,7 @@ class Record:
         stream.write(END_OF_RECORD)
         stream.write('\n')
 
-    def _run_handlers(self, handlers: list[EntryHandler], data: str):
+    def _run_handlers(self, handlers: list[EntryHandler], prefix: str, data: str):
         # Run all of the available handler for each of the provided data
         # Since handlers can return multiple values to duplicate entries,
         # the next handler has to be run on the full list of outputs
@@ -52,7 +52,7 @@ class Record:
         for handler in handlers:
             transformed = []
             for x in result:
-                processed = handler(x, self)
+                processed = handler(prefix, x, self)
                 if isinstance(processed, str):
                     transformed.append(processed)
                 else:
