@@ -5,7 +5,7 @@ from typing import TextIO, Callable, Iterable
 
 END_OF_RECORD = 'end_of_record'
 
-EntryHandler = Callable[[str, 'Record'], Iterable[str]]
+EntryHandler = Callable[[str, 'Record'], Iterable[str] | str]
 
 class RemoveRecord(Exception):
     pass
@@ -53,7 +53,10 @@ class Record:
             transformed = []
             for x in result:
                 processed = handler(x, self)
-                transformed.extend(processed)
+                if isinstance(processed, str):
+                    transformed.append(processed)
+                else:
+                    transformed.extend(processed)
             result = transformed
         return result
 

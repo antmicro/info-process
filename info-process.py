@@ -6,7 +6,7 @@
 import argparse
 from parser import Stream, Record
 
-def two_way_toggle_handler(params: str, file: Record) -> tuple[str]:
+def two_way_toggle_handler(params: str, file: Record) -> tuple[str, str]:
     # <LINE NUMBER>,<BLOCK>,<NAME>,<HIT COUNT>
     line_number, block, name, hit_count = params.split(',', 4)
     return (
@@ -14,12 +14,12 @@ def two_way_toggle_handler(params: str, file: Record) -> tuple[str]:
         f'{line_number},{block},{name}_1->0,{hit_count}',
     )
 
-def missing_brda_handler(params: str, file: Record) -> tuple[str]:
+def missing_brda_handler(params: str, file: Record) -> str:
     # <LINE NUMBER>,<HIT COUNT>
     line_number, hit_count = params.split(',', 2)
     if not file.has_entry_for_line('BRDA', line_number):
         file.add('BRDA', f'{line_number},0,toggle,{hit_count}')
-    return (params,)
+    return params
 
 def main():
     parser = argparse.ArgumentParser()
