@@ -7,6 +7,9 @@ END_OF_RECORD = 'end_of_record'
 
 EntryHandler = Callable[[str, 'Record'], Iterable[str]]
 
+class RemoveRecord(Exception):
+    pass
+
 def split_entry(entry: str) -> tuple[str, str]:
     prefix, data, *_ = entry.split(':')
     return (prefix, data)
@@ -91,7 +94,10 @@ class Stream:
                 # Skip comments
                 continue
             if line == END_OF_RECORD:
-                self.files.append(self._lines_to_record(lines))
+                try:
+                    self.files.append(self._lines_to_record(lines))
+                except RemoveRecord:
+                    pass
                 lines = []
             else:
                 lines.append(line)
