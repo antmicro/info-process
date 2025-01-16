@@ -5,7 +5,7 @@ from typing import TextIO, Callable, Iterable
 
 END_OF_RECORD = 'end_of_record'
 
-FieldHandler = Callable[[str, 'Record'], Iterable[str]]
+EntryHandler = Callable[[str, 'Record'], Iterable[str]]
 
 def split_entry(entry: str) -> tuple[str, str]:
     prefix, data, *_ = entry.split(':')
@@ -23,9 +23,8 @@ class Record:
 
     def add(self, prefix: str, data: str):        
         if prefix in self.stream.handlers:
-            transformed_data = self.stream.handlers[prefix](data, self)
-            for transformed in transformed_data:
-                self._add_entry(prefix, transformed)
+            for processed in self._run_handlers(self.stream.handlers[prefix], data):
+                self._add_entry(prefix, processed)
         else:
             self._add_entry(prefix, data)
 
@@ -40,6 +39,20 @@ class Record:
                 stream.write(f'{prefix}:{line}\n')
         stream.write(END_OF_RECORD)
         stream.write('\n')
+
+    def _run_handlers(self, handlers: list[EntryHandler], data: str):
+        # Run all of the available handler for each of the provided data
+        # Since handlers can return multiple values to duplicate entries,
+        # the next handler has to be run on the full list of outputs
+        # from the previous handler.
+        result = [data]
+        for handler in handlers:
+            transformed = []
+            for x in result:
+                processed = handler(x, self)
+                transformed.extend(processed)
+            result = transformed
+        return result
 
     def _add_entry(self, prefix: str, data: str):
         if prefix not in self.lines_per_prefix:
@@ -61,12 +74,14 @@ class Record:
 
 class Stream:
     def __init__(self):
-        self.handlers: dict[str, FieldHandler] = {}
+        self.handlers: dict[str, list[EntryHandler]] = {}
         self.files: list[Record] = []
 
-    def install_handler(self, prefix: str, handler: FieldHandler):
-        assert prefix not in self.handlers, f'Handler for prefix "{prefix}" is already installed'
-        self.handlers[prefix] = handler
+    def install_handler(self, prefix: str, handler: EntryHandler):
+        if prefix not in self.handlers:
+            self.handlers[prefix] = [handler]
+        else:
+            self.handlers[prefix].append(handler)
 
     def run(self, stream: TextIO) -> bool:
         lines = []
