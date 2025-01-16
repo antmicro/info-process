@@ -83,11 +83,12 @@ class Stream:
         self.handlers: dict[str, list[EntryHandler]] = {}
         self.files: list[Record] = []
 
-    def install_handler(self, prefix: str, handler: EntryHandler):
-        if prefix not in self.handlers:
-            self.handlers[prefix] = [handler]
-        else:
-            self.handlers[prefix].append(handler)
+    def install_handler(self, prefixes: Iterable[str], handler: EntryHandler):
+        for prefix in prefixes:
+            if prefix not in self.handlers:
+                self.handlers[prefix] = [handler]
+            else:
+                self.handlers[prefix].append(handler)
 
     def run(self, stream: TextIO) -> bool:
         lines = []

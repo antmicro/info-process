@@ -65,16 +65,16 @@ def main():
     stream = Stream()
 
     if args.strip_file_prefix is not None:
-        stream.install_handler('SF', create_path_strip_handler(args.strip_file_prefix))
+        stream.install_handler(['SF'], create_path_strip_handler(args.strip_file_prefix))
 
     if args.filter is not None:
-        stream.install_handler('SF', create_filter_handler(args.filter))
+        stream.install_handler(['SF'], create_filter_handler(args.filter))
 
     if args.add_two_way_toggles:
-        stream.install_handler('BRDA', two_way_toggle_handler)
+        stream.install_handler(['BRDA'], two_way_toggle_handler)
 
     if args.add_missing_brda_entries:
-        stream.install_handler('DA', missing_brda_handler)
+        stream.install_handler(['DA'], missing_brda_handler)
 
     with open(args.input, 'rt') as f:
         stream.run(f)
