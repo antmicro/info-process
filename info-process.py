@@ -31,6 +31,16 @@ def create_filter_handler(pattern: str) -> EntryHandler:
 
     return handler
 
+def create_path_strip_handler(pattern: str) -> EntryHandler:
+    regex = re.compile(pattern)
+    def handler(path: str, file: Record) -> str:
+        # Match the pattern from the start and remove what got matched from the path
+        if (m := regex.match(path)):
+            return path[m.end():]
+        return path
+
+    return handler
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('input', type=str,
@@ -44,6 +54,8 @@ def main():
                         'Can be combined with --add-two-way-toggles to get separate entries for each added toggle')
     parser.add_argument('--filter', type=str,
                         help='Only keep entries for files matching the provided regular expression')
+    parser.add_argument('--strip-file-prefix', type=str,
+                        help='Remove the provided pattern from file paths in SF entries')
     args = parser.parse_args()
 
     # Default to a in-place modification if no output path is specified
@@ -51,6 +63,9 @@ def main():
         args.output = args.input
 
     stream = Stream()
+
+    if args.strip_file_prefix is not None:
+        stream.install_handler('SF', create_path_strip_handler(args.strip_file_prefix))
 
     if args.filter is not None:
         stream.install_handler('SF', create_filter_handler(args.filter))
