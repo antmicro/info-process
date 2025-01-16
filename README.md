@@ -38,3 +38,23 @@ For example, to strip `/root/designs/` prefixes from `SF` entries in a `coverage
 ```bash
 ./info-process.py --filter 'unit-tests' --strip-file-prefix '.*/designs/' coverage-toggles.info
 ```
+
+### Normalizing toggle hit counts
+
+Hit counts greater than 1 in `BRDA` and `DA` entries can be replaced with 1 with the `--normalize-hit-counts` option.
+
+For example:
+```bash
+./info-process.py --normalize-hit-counts coverage-toggles.info
+```
+
+will modify the `coverage-toggles.info` file in-place like so:
+
+```diff
+BRDA:30,0,toggle_0,1
+-BRDA:30,0,toggle_1,27
++BRDA:30,0,toggle_1,1
+DA:48,0
+-DA:49,159
++DA:49,1
+```

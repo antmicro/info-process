@@ -41,6 +41,16 @@ def create_path_strip_handler(pattern: str) -> EntryHandler:
 
     return handler
 
+def normalize_hit_count_handler(prefix: str, params: str, file: Record) -> str:
+    if prefix == 'DA':
+        line_number, hit_count = params.split(',', 2)
+        return f'{line_number},{int(hit_count) > 0:d}'
+    elif prefix == 'BRDA':
+        line_number, block, name, hit_count = params.split(',', 4)
+        return f'{line_number},{block},{name},{int(hit_count) > 0:d}'
+    else:
+        raise Exception(f'Unsupported prefix: {prefix}')
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('input', type=str,
@@ -56,6 +66,8 @@ def main():
                         help='Only keep entries for files matching the provided regular expression')
     parser.add_argument('--strip-file-prefix', type=str,
                         help='Remove the provided pattern from file paths in SF entries')
+    parser.add_argument('--normalize-hit-counts', action='store_true', default=False,
+                        help='Replace hit counts greater than 1 in BRDA and DA entries with 1')
     args = parser.parse_args()
 
     # Default to a in-place modification if no output path is specified
@@ -75,6 +87,9 @@ def main():
 
     if args.add_missing_brda_entries:
         stream.install_handler(['DA'], missing_brda_handler)
+
+    if args.normalize_hit_counts:
+        stream.install_handler(['DA', 'BRDA'], normalize_hit_count_handler)
 
     with open(args.input, 'rt') as f:
         stream.run(f)
