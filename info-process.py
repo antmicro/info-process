@@ -23,10 +23,15 @@ def missing_brda_handler(params: str, file: Record) -> tuple[str]:
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('input', type=str)
-    parser.add_argument('--output', type=str)
-    parser.add_argument('--add-two-way-toggles', action='store_true', default=False)
-    parser.add_argument('--add-missing-brda-entries', action='store_true', default=False)
+    parser.add_argument('input', type=str,
+                        help='Input file in the .info format that should be processed')
+    parser.add_argument('--output', type=str,
+                        help='Optional output path to save the result to instead of the default which is modifying the input file in-place')
+    parser.add_argument('--add-two-way-toggles', action='store_true', default=False,
+                        help='Duplicate BRDA entries in .info files for toggles which have 0->1 and 1->0 toggles combined')
+    parser.add_argument('--add-missing-brda-entries', action='store_true', default=False,
+                        help='Generate BRDA entries for lines which only have DA entries. ' +
+                        'Can be combined with --add-two-way-toggles to get separate entries for each added toggle')
     args = parser.parse_args()
 
     # Default to a in-place modification if no output path is specified
