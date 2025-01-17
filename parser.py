@@ -1,7 +1,7 @@
 # Copyright (c) Antmicro
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import TextIO, Callable, Iterable
+from typing import TextIO, Callable, Iterable, Generator, Any
 
 END_OF_RECORD = 'end_of_record'
 
@@ -16,16 +16,14 @@ def split_entry(entry: str) -> tuple[str, str]:
     return (prefix, data)
 
 class Record:
-    def __init__(self, stream: 'Stream', init: list[str]):
+    def __init__(self, stream: 'Stream'):
         self.stream = stream
+        self.source_file: str | None = None
         self.lines_per_prefix: dict[str, list[str]] = {}
         self.prefix_to_line: dict[str, set[int]] = {}
         self.prefix_order: list[str] = []
 
-        for entry in init:
-            self._update_stats(*split_entry(entry))
-
-    def add(self, prefix: str, data: str):        
+    def add(self, prefix: str, data: str):
         if prefix in self.stream.handlers:
             for processed in self._run_handlers(self.stream.handlers[prefix], prefix, data):
                 self._add_entry(prefix, processed)
@@ -79,7 +77,9 @@ class Record:
         self._update_stats(prefix, data)
 
     def _update_stats(self, prefix: str, data: str):
-        if prefix == 'BRDA' or prefix == 'DA':
+        if self.source_file is None and prefix == 'SF':
+            self.source_file = data
+        elif prefix == 'BRDA' or prefix == 'DA':
             line_number, *_ = data.split(',', 1)
             if prefix not in self.prefix_to_line:
                 self.prefix_to_line[prefix] = set()
@@ -89,7 +89,7 @@ class Stream:
     def __init__(self):
         self.handlers: dict[str, list[EntryHandler]] = {}
         self.category_handlers: dict[str, list[CategoryHandler]] = {}
-        self.files: list[Record] = []
+        self.records: list[Record] = []
 
     def install_handler(self, prefixes: Iterable[str], handler: EntryHandler):
         for prefix in prefixes:
@@ -105,28 +105,31 @@ class Stream:
             else:
                 self.category_handlers[prefix].append(handler)
 
-    def run(self, stream: TextIO) -> bool:
+    def load(self, stream: TextIO):
+        for record, lines in self._get_record_lines(stream):
+            try:
+                for prefix, data in lines:
+                    record.add(prefix, data)
+                self.records.append(record)
+            except RemoveRecord:
+                pass
+
+    def save(self, out: TextIO):
+        for record in self.records:
+            record.save(out)
+
+    def _get_record_lines(self, stream: TextIO) -> Generator[tuple[Record, list[tuple[str, str]]], Any, None]:
+        record = Record(self)
         lines = []
         for line in stream:
             line = line.strip()
             if line.startswith('#'):
-                # Skip comments
-                continue
+                continue # Skip comments
             if line == END_OF_RECORD:
-                try:
-                    self.files.append(self._lines_to_record(lines))
-                except RemoveRecord:
-                    pass
+                yield (record, lines)
                 lines = []
+                record = Record(self)
             else:
-                lines.append(line)
-
-    def save(self, out: TextIO):
-        for file in self.files:
-            file.save(out)
-    
-    def _lines_to_record(self, lines: list[str]) -> Record:
-        file = Record(self, lines)
-        for line in lines:
-            file.add(*split_entry(line))
-        return file
+                prefix, data = split_entry(line)
+                record._update_stats(prefix, data)
+                lines.append((prefix, data))

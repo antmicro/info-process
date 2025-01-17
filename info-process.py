@@ -117,7 +117,7 @@ def main():
         stream.install_handler(['DA', 'BRDA'], normalize_hit_count_handler)
 
     with open(args.input, 'rt') as f:
-        stream.run(f)
+        stream.load(f)
 
     with open(args.output, 'wt') as f:
         stream.save(f)
