@@ -51,6 +51,22 @@ def normalize_hit_count_handler(prefix: str, params: str, file: Record) -> str:
     else:
         raise Exception(f'Unsupported prefix: {prefix}')
 
+def set_block_from_name_handler(prefix: str, entries: list[str], record: Record):
+    current_prefix: str | None = None
+    result: list[str] = []
+    counter = 0
+    current_line = -1
+    for line in sorted(entries):
+        line_number, _, name, hit_count = line.split(',', 3)
+        # group just based on line numbers
+        if current_line != int(line_number):
+            counter = -1
+            current_line = int(line_number)
+        counter += 1
+        result.append(f'{line_number},{counter},{name},{hit_count}')
+
+    record.lines_per_prefix[prefix] = result
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('input', type=str,
@@ -70,6 +86,8 @@ def main():
                         help='Remove the provided pattern from file paths in SF entries')
     parser.add_argument('--normalize-hit-counts', action='store_true', default=False,
                         help='Replace hit counts greater than 1 in BRDA and DA entries with 1')
+    parser.add_argument('--set-block-ids', action='store_true', default=False,
+                        help='Replace group number in BRDA with consecutive numbers for entries on the same line')
     args = parser.parse_args()
 
     # Default to a in-place modification if no output path is specified
@@ -86,6 +104,9 @@ def main():
 
     if args.filter_out is not None:
         stream.install_handler(['SF'], create_filter_handler(args.filter_out, negate=True))
+
+    if args.set_block_from_name:
+        stream.install_category_handler('BRDA', set_block_from_name_handler)
 
     if args.add_two_way_toggles:
         stream.install_handler(['BRDA'], two_way_toggle_handler)

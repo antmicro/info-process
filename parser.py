@@ -6,6 +6,7 @@ from typing import TextIO, Callable, Iterable
 END_OF_RECORD = 'end_of_record'
 
 EntryHandler = Callable[[str, str, 'Record'], Iterable[str] | str]
+CategoryHandler = Callable[[str, list[str], 'Record'], None]
 
 class RemoveRecord(Exception):
     pass
@@ -38,6 +39,9 @@ class Record:
 
     def save(self, stream: TextIO):
         for prefix in self.prefix_order:
+            if prefix in self.stream.category_handlers:
+                self.stream.category_handlers[prefix](prefix, self.lines_per_prefix[prefix], self)
+
             for line in self.lines_per_prefix[prefix]:
                 stream.write(f'{prefix}:{line}\n')
         stream.write(END_OF_RECORD)
@@ -81,6 +85,7 @@ class Record:
 class Stream:
     def __init__(self):
         self.handlers: dict[str, list[EntryHandler]] = {}
+        self.category_handlers: dict[str,CategoryHandler] = {}
         self.files: list[Record] = []
 
     def install_handler(self, prefixes: Iterable[str], handler: EntryHandler):
@@ -89,6 +94,10 @@ class Stream:
                 self.handlers[prefix] = [handler]
             else:
                 self.handlers[prefix].append(handler)
+
+    def install_category_handler(self, prefix: str, handler: CategoryHandler):
+        assert prefix not in self.category_handlers, 'Currently only 1 category handler is allowed per prefix'
+        self.category_handlers[prefix] = handler
 
     def run(self, stream: TextIO) -> bool:
         lines = []
