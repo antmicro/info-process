@@ -22,10 +22,10 @@ def missing_brda_handler(prefix: str, params: str, file: Record) -> str:
         file.add('BRDA', f'{line_number},0,toggle,{hit_count}')
     return params
 
-def create_filter_handler(pattern: str) -> EntryHandler:
+def create_filter_handler(pattern: str, negate: bool = False) -> EntryHandler:
     regex = re.compile(pattern)
     def handler(prefix: str, path: str, file: Record) -> str:
-        if regex.search(path):
+        if negate != (regex.search(path) is not None):
             return path
         raise RemoveRecord()
 
@@ -64,6 +64,8 @@ def main():
                         'Can be combined with --add-two-way-toggles to get separate entries for each added toggle')
     parser.add_argument('--filter', type=str,
                         help='Only keep entries for files matching the provided regular expression')
+    parser.add_argument('--filter-out', type=str,
+                        help='Only keep entries for files not matching the provided regular expression. Evaluated after --filter')
     parser.add_argument('--strip-file-prefix', type=str,
                         help='Remove the provided pattern from file paths in SF entries')
     parser.add_argument('--normalize-hit-counts', action='store_true', default=False,
@@ -81,6 +83,9 @@ def main():
 
     if args.filter is not None:
         stream.install_handler(['SF'], create_filter_handler(args.filter))
+
+    if args.filter_out is not None:
+        stream.install_handler(['SF'], create_filter_handler(args.filter_out, negate=True))
 
     if args.add_two_way_toggles:
         stream.install_handler(['BRDA'], two_way_toggle_handler)

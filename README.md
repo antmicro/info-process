@@ -31,6 +31,7 @@ will modify the file in-place by adding `BRDA` entries for files with only `DA` 
 
 Source file paths in `SF` entries (`SF:<PATH>`) can be stripped based on a regular expression provided with the `--strip-file-prefix <REGEX>` option.
 Additionally, records for specific source files can be filtered out based on their paths matching a regular expression provided with the `--filter <REGEX>` option.
+For non-matching paths you can use `--filter-out <REGEX>`.
 Please note that filtering is performed on stripped paths when these two options are used together.
 
 For example, to strip `/root/designs/` prefixes from `SF` entries in a `coverage-toggles.info` file and only keep records for files from the `/root/designs/unit-tests` directory, one can run:
