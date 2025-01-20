@@ -9,7 +9,7 @@ import re
 
 def two_way_toggle_handler(prefix: str, params: str, file: Record) -> tuple[str, str]:
     # <LINE NUMBER>,<BLOCK>,<NAME>,<HIT COUNT>
-    line_number, block, name, hit_count = params.split(',', 4)
+    line_number, block, name, hit_count = params.split(',', 3)
     return (
         f'{line_number},{block},{name}_0->1,{hit_count}',
         f'{line_number},{block},{name}_1->0,{hit_count}',
@@ -17,7 +17,7 @@ def two_way_toggle_handler(prefix: str, params: str, file: Record) -> tuple[str,
 
 def missing_brda_handler(prefix: str, params: str, file: Record) -> str:
     # <LINE NUMBER>,<HIT COUNT>
-    line_number, hit_count = params.split(',', 2)
+    line_number, hit_count = params.split(',', 1)
     if not file.has_entry_for_line('BRDA', line_number):
         file.add('BRDA', f'{line_number},0,toggle,{hit_count}')
     return params
@@ -43,10 +43,10 @@ def create_path_strip_handler(pattern: str) -> EntryHandler:
 
 def normalize_hit_count_handler(prefix: str, params: str, file: Record) -> str:
     if prefix == 'DA':
-        line_number, hit_count = params.split(',', 2)
+        line_number, hit_count = params.split(',', 1)
         return f'{line_number},{int(hit_count) > 0:d}'
     elif prefix == 'BRDA':
-        line_number, block, name, hit_count = params.split(',', 4)
+        line_number, block, name, hit_count = params.split(',', 3)
         return f'{line_number},{block},{name},{int(hit_count) > 0:d}'
     else:
         raise Exception(f'Unsupported prefix: {prefix}')

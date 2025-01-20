@@ -11,7 +11,7 @@ class RemoveRecord(Exception):
     pass
 
 def split_entry(entry: str) -> tuple[str, str]:
-    prefix, data, *_ = entry.split(':')
+    prefix, data = entry.split(':', 1)
     return (prefix, data)
 
 class Record:
@@ -73,7 +73,7 @@ class Record:
 
     def _update_stats(self, prefix: str, data: str):
         if prefix == 'BRDA' or prefix == 'DA':
-            line_number, *_ = data.split(',', 2)
+            line_number, *_ = data.split(',', 1)
             if prefix not in self.prefix_to_line:
                 self.prefix_to_line[prefix] = set()
             self.prefix_to_line[prefix].add(line_number)
