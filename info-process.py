@@ -51,7 +51,7 @@ def normalize_hit_count_handler(prefix: str, params: str, file: Record) -> str:
     else:
         raise Exception(f'Unsupported prefix: {prefix}')
 
-def set_block_from_name_handler(prefix: str, entries: list[str], record: Record):
+def set_block_ids_handler(prefix: str, entries: list[str], record: Record):
     current_prefix: str | None = None
     result: list[str] = []
     counter = 0
@@ -105,8 +105,8 @@ def main():
     if args.filter_out is not None:
         stream.install_handler(['SF'], create_filter_handler(args.filter_out, negate=True))
 
-    if args.set_block_from_name:
-        stream.install_category_handler('BRDA', set_block_from_name_handler)
+    if args.set_block_ids:
+        stream.install_category_handler('BRDA', set_block_ids_handler)
 
     if args.add_two_way_toggles:
         stream.install_handler(['BRDA'], two_way_toggle_handler)
