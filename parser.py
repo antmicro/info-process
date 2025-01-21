@@ -6,7 +6,7 @@ from typing import TextIO, Callable, Iterable
 END_OF_RECORD = 'end_of_record'
 
 EntryHandler = Callable[[str, str, 'Record'], Iterable[str] | str]
-CategoryHandler = Callable[[str, list[str], 'Record'], None]
+CategoryHandler = Callable[[str, list[str], 'Record'], list[str]]
 
 class RemoveRecord(Exception):
     pass
@@ -39,10 +39,12 @@ class Record:
 
     def save(self, stream: TextIO):
         for prefix in self.prefix_order:
+            data = self.lines_per_prefix[prefix]
             if prefix in self.stream.category_handlers:
                 for handler in self.stream.category_handlers[prefix]:
-                    handler(prefix, self.lines_per_prefix[prefix], self)
+                    data = handler(prefix, data, self)
 
+            self.lines_per_prefix[prefix] = data
             for line in self.lines_per_prefix[prefix]:
                 stream.write(f'{prefix}:{line}\n')
         stream.write(END_OF_RECORD)

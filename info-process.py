@@ -51,7 +51,7 @@ def normalize_hit_count_handler(prefix: str, params: str, file: Record) -> str:
     else:
         raise Exception(f'Unsupported prefix: {prefix}')
 
-def set_block_ids_handler(prefix: str, entries: list[str], record: Record):
+def set_block_ids_handler(prefix: str, entries: list[str], record: Record) -> list[str]:
     result: list[str] = []
     counter = 0
     current_line = -1
@@ -64,7 +64,7 @@ def set_block_ids_handler(prefix: str, entries: list[str], record: Record):
         counter += 1
         result.append(f'{line_number},{counter},{name},{hit_count}')
 
-    record.lines_per_prefix[prefix] = result
+    return result
 
 def main():
     parser = argparse.ArgumentParser()
