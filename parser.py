@@ -40,7 +40,8 @@ class Record:
     def save(self, stream: TextIO):
         for prefix in self.prefix_order:
             if prefix in self.stream.category_handlers:
-                self.stream.category_handlers[prefix](prefix, self.lines_per_prefix[prefix], self)
+                for handler in self.stream.category_handlers[prefix]:
+                    handler(prefix, self.lines_per_prefix[prefix], self)
 
             for line in self.lines_per_prefix[prefix]:
                 stream.write(f'{prefix}:{line}\n')
@@ -85,7 +86,7 @@ class Record:
 class Stream:
     def __init__(self):
         self.handlers: dict[str, list[EntryHandler]] = {}
-        self.category_handlers: dict[str,CategoryHandler] = {}
+        self.category_handlers: dict[str, list[CategoryHandler]] = {}
         self.files: list[Record] = []
 
     def install_handler(self, prefixes: Iterable[str], handler: EntryHandler):
@@ -95,9 +96,12 @@ class Stream:
             else:
                 self.handlers[prefix].append(handler)
 
-    def install_category_handler(self, prefix: str, handler: CategoryHandler):
-        assert prefix not in self.category_handlers, 'Currently only 1 category handler is allowed per prefix'
-        self.category_handlers[prefix] = handler
+    def install_category_handler(self, prefixes: Iterable[str], handler: CategoryHandler):
+        for prefix in prefixes:
+            if prefix not in self.category_handlers:
+                self.category_handlers[prefix] = [handler]
+            else:
+                self.category_handlers[prefix].append(handler)
 
     def run(self, stream: TextIO) -> bool:
         lines = []

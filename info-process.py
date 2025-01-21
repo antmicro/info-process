@@ -105,7 +105,7 @@ def main():
         stream.install_handler(['SF'], create_filter_handler(args.filter_out, negate=True))
 
     if args.set_block_ids:
-        stream.install_category_handler('BRDA', set_block_ids_handler)
+        stream.install_category_handler(['BRDA'], set_block_ids_handler)
 
     if args.add_two_way_toggles:
         stream.install_handler(['BRDA'], two_way_toggle_handler)
