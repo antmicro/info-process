@@ -56,7 +56,7 @@ def set_block_ids_handler(prefix: str, entries: list[str], record: Record):
     result: list[str] = []
     counter = 0
     current_line = -1
-    for line in sorted(entries):
+    for line in entries:
         line_number, _, name, hit_count = line.split(',', 3)
         # group just based on line numbers
         if current_line != int(line_number):
