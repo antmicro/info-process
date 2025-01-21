@@ -52,7 +52,6 @@ def normalize_hit_count_handler(prefix: str, params: str, file: Record) -> str:
         raise Exception(f'Unsupported prefix: {prefix}')
 
 def set_block_ids_handler(prefix: str, entries: list[str], record: Record):
-    current_prefix: str | None = None
     result: list[str] = []
     counter = 0
     current_line = -1
