@@ -7,13 +7,13 @@ import argparse
 from parser import Stream, Record, EntryHandler, RemoveRecord
 import re
 
-def two_way_toggle_handler(prefix: str, params: str, file: Record) -> tuple[str, str]:
-    # <LINE NUMBER>,<BLOCK>,<NAME>,<HIT COUNT>
-    line_number, block, name, hit_count = params.split(',', 3)
-    return (
-        f'{line_number},{block},{name}_0->1,{hit_count}',
-        f'{line_number},{block},{name}_1->0,{hit_count}',
-    )
+def two_way_toggle_handler(prefix: str, entries: list[str], file: Record) -> list[str]:
+    result: list[str] = []
+    for entry in entries:
+        line_number, block, name, hit_count = entry.split(',', 3)
+        result.append(f'{line_number},{block},{name}_0->1,{hit_count}')
+        result.append(f'{line_number},{block},{name}_1->0,{hit_count}')
+    return result
 
 def missing_brda_handler(prefix: str, params: str, file: Record) -> str:
     # <LINE NUMBER>,<HIT COUNT>
@@ -108,7 +108,7 @@ def main():
         stream.install_category_handler(['BRDA'], set_block_ids_handler)
 
     if args.add_two_way_toggles:
-        stream.install_handler(['BRDA'], two_way_toggle_handler)
+        stream.install_category_handler(['BRDA'], two_way_toggle_handler)
 
     if args.add_missing_brda_entries:
         stream.install_handler(['DA'], missing_brda_handler)
