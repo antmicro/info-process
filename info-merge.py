@@ -5,8 +5,10 @@
 
 import argparse
 import handlers
+import os.path
 from parser import Stream, Record
 import re
+from typing import TextIO
 
 def merge_brda(prefix: str, entries: list[str], record: Record) -> list[str]:
     NUMBER_FILL_SIZE = 10
@@ -83,12 +85,42 @@ def squash_misc(prefix: str, entries: list[str], record: Record) -> list[str]:
     assert len(unique_entries), f'Multiple values for prefix "{prefix}" detected: {unique_entries}, merging logic is not working correctly'
     return [entries[0]]
 
+def create_test_list(out: TextIO, stream: Stream):
+    out.write('TN:test_coverage\n')
+    for record in stream.records:
+        merged: dict[int, set[str]] = {}
+        for prefix in ['DA', 'BRDA']:
+            if prefix not in record.line_info:
+                continue
+
+            for line, info in record.line_info[prefix].items():
+                if line in merged:
+                    merged[line].update(info.test_files)
+                else:
+                    merged[line] = info.test_files.copy()
+
+        out.write(f'SN:{record.source_file}\n')
+        for line in sorted(merged.keys()):
+            if len(merged[line]) == 0:
+                continue
+
+            out.write(f'TEST:{line},')
+            out.write(';'.join(merged[line]))
+            out.write('\n')
+        out.write('end_of_record\n')
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('inputs', type=str, nargs='+', default=[],
                         help='.info files to be merged')
     parser.add_argument('--output', type=str, required=True,
                         help="Output file's path")
+    parser.add_argument('--test-list', type=str, default=None,
+                        help='Output path for an optional file with names of tests which provided hits for each line during merging')
+    parser.add_argument('--test-list-strip', type=str, default='.info',
+                        help='Comma-separated set of strings that should be removed from paths before using them in a test list file, e.g., "coverage-,-all.info"; default: ".info"')
+    parser.add_argument('--test-list-full-path', type=bool,
+                        help='Prevents automatic common prefix removing from paths before using them in a test list file')
     args = parser.parse_args()
 
     stream = Stream()
@@ -100,15 +132,30 @@ def main():
     stream.install_category_handler(['LH'], handlers.create_hit_count_restore('DA'))
     stream.install_category_handler(['TN', 'SF', 'FNF', 'FNH'], squash_misc)
 
-    print(f'Merging input files...')
-    for path in args.inputs:
-        print(path)
-        with open(path, 'rt') as f:
-            stream.merge(f)
+    if args.test_list is not None:
+        # os.path.commonpath is used instead of os.path.commonprefix to prevent automatic removal
+        # of parts of file names. It doesn't include the final '/' though so we need to add it.
+        common_prefix = '' if args.test_list_full_path else os.path.commonpath(args.inputs) + '/'
 
-    print(f'Saving to {args.output}')
+    print(f'Merging input files...')
+    for path in sorted(args.inputs):
+        print(path)
+        test_name = None
+        if args.test_list is not None:
+            test_name = path.removeprefix(common_prefix)
+            for string in args.test_list_strip.split(','):
+                test_name = test_name.replace(string, '')
+        with open(path, 'rt') as f:
+            stream.merge(f, test_name)
+
+    print(f'Saving merge output in {args.output}')
     with open(args.output, 'wt') as f:
         stream.save(f)
+
+    if args.test_list is not None:
+        print(f'Saving test list in {args.test_list}')
+        with open(args.test_list, 'wt') as f:
+            create_test_list(f, stream)
 
 if __name__ == '__main__':
     main()

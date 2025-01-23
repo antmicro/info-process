@@ -11,6 +11,15 @@ CategoryHandler = Callable[[str, list[str], 'Record'], list[str]]
 class RemoveRecord(Exception):
     pass
 
+class LineInfo:
+    def __init__(self, initial_file: str | None):
+        self.test_files: set[str] = set()
+        self.add_source(initial_file)
+
+    def add_source(self, test_file: str | None):
+        if test_file is not None:
+            self.test_files.add(test_file)
+
 def split_entry(entry: str) -> tuple[str, str]:
     prefix, data = entry.split(':', 1)
     return (prefix, data)
@@ -20,7 +29,7 @@ class Record:
         self.stream = stream
         self.source_file: str | None = None
         self.lines_per_prefix: dict[str, list[str]] = {}
-        self.prefix_to_line: dict[str, set[int]] = {}
+        self.line_info: dict[str, dict[int, LineInfo]] = {}
         self.prefix_order: list[str] = []
 
     def add(self, prefix: str, data: str):
@@ -31,9 +40,9 @@ class Record:
             self._add_entry(prefix, data)
 
     def has_entry_for_line(self, prefix: str, line: int) -> bool:
-        if prefix not in self.prefix_to_line:
+        if prefix not in self.line_info:
             return False
-        return line in self.prefix_to_line[prefix]
+        return line in self.line_info[prefix]
 
     def save(self, stream: TextIO):
         for prefix in self.prefix_order:
@@ -47,6 +56,19 @@ class Record:
                 stream.write(f'{prefix}:{line}\n')
         stream.write(END_OF_RECORD)
         stream.write('\n')
+
+    def _merge_stats(self, other: 'Record'):
+        for prefix in other.line_info:
+            if prefix not in self.line_info:
+                self.line_info[prefix] = other.line_info[prefix]
+                continue
+
+            for line, info in other.line_info[prefix].items():
+                if line not in self.line_info[prefix]:
+                    self.line_info[prefix][line]  = info
+                    continue
+
+                self.line_info[prefix][line].test_files.update(info.test_files)
 
     def _run_handlers(self, handlers: list[EntryHandler], prefix: str, data: str):
         # Run all of the available handler for each of the provided data
@@ -74,16 +96,23 @@ class Record:
             self.lines_per_prefix[prefix] = []
 
         self.lines_per_prefix[prefix].append(data)
-        self._update_stats(prefix, data)
+        self._update_stats(prefix, data, None)
 
-    def _update_stats(self, prefix: str, data: str):
+    def _update_stats(self, prefix: str, data: str, test_file: str | None):
         if self.source_file is None and prefix == 'SF':
             self.source_file = data
         elif prefix == 'BRDA' or prefix == 'DA':
-            line_number, *_ = data.split(',', 1)
-            if prefix not in self.prefix_to_line:
-                self.prefix_to_line[prefix] = set()
-            self.prefix_to_line[prefix].add(line_number)
+            line_number, *_, hit_count = data.split(',')
+            line_number = int(line_number)
+            if prefix not in self.line_info:
+                self.line_info[prefix] = {}
+
+            if hit_count == '0':
+                test_file = None
+            if line_number not in self.line_info[prefix]:
+                self.line_info[prefix][line_number] = LineInfo(test_file)
+            else:
+                self.line_info[prefix][line_number].add_source(test_file)
 
 class Stream:
     def __init__(self):
@@ -106,7 +135,7 @@ class Stream:
                 self.category_handlers[prefix].append(handler)
 
     def load(self, stream: TextIO):
-        for record, lines in self._get_record_lines(stream):
+        for record, lines in self._get_record_lines(stream, None):
             try:
                 for prefix, data in lines:
                     record.add(prefix, data)
@@ -114,8 +143,8 @@ class Stream:
             except RemoveRecord:
                 pass
 
-    def merge(self, stream: TextIO):
-        for record, lines in self._get_record_lines(stream):
+    def merge(self, stream: TextIO, test_file_path: str):
+        for record, lines in self._get_record_lines(stream, test_file_path):
             record = self._get_matching_record(record)
             for prefix, data in lines:
                 try:
@@ -128,7 +157,7 @@ class Stream:
         for record in self.records:
             record.save(out)
 
-    def _get_record_lines(self, stream: TextIO) -> Generator[tuple[Record, list[tuple[str, str]]], Any, None]:
+    def _get_record_lines(self, stream: TextIO, test_file: str | None) -> Generator[tuple[Record, list[tuple[str, str]]], Any, None]:
         record = Record(self)
         lines = []
         for line in stream:
@@ -141,13 +170,14 @@ class Stream:
                 record = Record(self)
             else:
                 prefix, data = split_entry(line)
-                record._update_stats(prefix, data)
+                record._update_stats(prefix, data, test_file)
                 lines.append((prefix, data))
 
     def _get_matching_record(self, record: Record) -> Record:
         assert record.source_file is not None, 'Record without a source file encountered'
         for r in self.records:
             if r.source_file == record.source_file:
+                r._merge_stats(record)
                 return r
         self.records.append(record)
         return record

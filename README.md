@@ -82,3 +82,28 @@ To apply this new order to the block IDs of the merged file, one can use `--set-
 ```bash
 ./info-process.py --set-block-ids coverage-merged.info
 ```
+
+#### Test-list file
+
+An additional file with names of tests which provided hits for each line can be optionally created with a `--test-list` option during merging, e.g.:
+```bash
+./info-merge.py --test-list test-list.desc --output coverage-merged.info coverage-test1.info coverage-test2.info coverage-test3.info
+```
+
+The output file is structured similarly to the `.info` files with the following entries for every source file:
+* `SN:<SOURCE_FILE_PATH>`
+* `TEST:<LINE>,<TEST_PATH_1>[;<TEST_PATH_2>...]` for each line if there were any hits
+* `end_of_record`
+
+##### Test names customization
+
+Test names are constructed from paths of input files with common path prefixes and `.info` suffixes removed by default, e.g., `test1` and `test2` will be used for input files `/ci/test1.info` and `/ci/test2.info`.
+Additional strings which should be removed from test names can be provided with a `--test-list-strip <STRING1>[,<STRING2>...]` option.
+
+For example, `coverage-` and `-all.info` can be removed from paths before using them as test names with:
+```bash
+./info-merge.py --test-list test-list.desc --test-list-strip coverage-,-all.info --output coverage-merged.info /ci/tests/coverage-*-all.info
+```
+
+A common path prefix (`/ci/tests/` in this case) is removed by default and shouldn't be included in the `--test-list-strip` option.
+This behavior can be disabled with a `--test-list-full-path` option.
