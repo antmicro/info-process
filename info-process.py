@@ -4,6 +4,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import argparse
+import handlers
 from parser import Stream, Record, EntryHandler, RemoveRecord
 import re
 
@@ -115,6 +116,12 @@ def main():
 
     if args.normalize_hit_counts:
         stream.install_handler(['DA', 'BRDA'], normalize_hit_count_handler)
+
+    # Always fix counts reported in BRF, BRH, LF and LH
+    stream.install_category_handler(['BRF'], handlers.create_count_restore('BRDA'))
+    stream.install_category_handler(['BRH'], handlers.create_hit_count_restore('BRDA'))
+    stream.install_category_handler(['LF'], handlers.create_count_restore('DA'))
+    stream.install_category_handler(['LH'], handlers.create_hit_count_restore('DA'))
 
     with open(args.input, 'rt') as f:
         stream.load(f)
