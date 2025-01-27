@@ -59,3 +59,26 @@ DA:48,0
 -DA:49,159
 +DA:49,1
 ```
+
+### Merging
+
+Multiple `.info` files can be merged using the `info-merge.py` script, e.g.
+
+```bash
+./info-merge.py --output coverage-merged.info coverage-test1.info coverage-test2.info coverage-test3.info
+```
+
+which will merge `coverage-test1.info`, `coverage-test2.info`, `coverage-test3.info` files and save the result to `coverage-merged.info`.
+
+The output file will contain information merged for matching files based on `SF` paths with:
+* recalculated `BRF`, `BRH`, `LF` and `LH` entries,
+* `DA` entries with total hits for the given line from the input files,
+* `BRDA` entries with total hits for the given line and name from the input files and the highest block ID found for the given name in the input files.
+
+`BRDA` entries for the given line will be sorted lexicographically with proper number handling, i.e., id[0], ..., id[9], id[10]...
+This might cause block IDs to be out of order in the output file if they were sorted differently in the input files.
+
+To apply this new order to the block IDs of the merged file, one can use `--set-block-ids` option of the `info-process.py` script:
+```bash
+./info-process.py --set-block-ids coverage-merged.info
+```

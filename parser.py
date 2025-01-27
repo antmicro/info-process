@@ -114,6 +114,16 @@ class Stream:
             except RemoveRecord:
                 pass
 
+    def merge(self, stream: TextIO):
+        for record, lines in self._get_record_lines(stream):
+            record = self._get_matching_record(record)
+            for prefix, data in lines:
+                try:
+                    record.add(prefix, data)
+                except RemoveRecord:
+                    print('Removing records is not supported during merging')
+                    raise
+
     def save(self, out: TextIO):
         for record in self.records:
             record.save(out)
@@ -133,3 +143,11 @@ class Stream:
                 prefix, data = split_entry(line)
                 record._update_stats(prefix, data)
                 lines.append((prefix, data))
+
+    def _get_matching_record(self, record: Record) -> Record:
+        assert record.source_file is not None, 'Record without a source file encountered'
+        for r in self.records:
+            if r.source_file == record.source_file:
+                return r
+        self.records.append(record)
+        return record
