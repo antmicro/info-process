@@ -60,6 +60,43 @@ DA:48,0
 +DA:49,1
 ```
 
+### Setting block IDs
+
+Block IDs in `BRDA` entries (numbers that are between line number and name) for the same line can be replaced with consecutive numbers.
+
+For example:
+
+```bash
+./info-process.py --set-block-ids coverage-toggles.info
+```
+
+will override the block IDs like so:
+```diff
+BRDA:30,0,toggle[0],0
+-BRDA:30,0,toggle[1],12
++BRDA:30,1,toggle[1],12
+BRDA:31,0,toggle[2],1
+-BRDA:31,0,toggle[3],35
+-BRDA:31,0,toggle[4],0
++BRDA:31,1,toggle[3],35
++BRDA:31,2,toggle[4],0
+```
+
+Assigned block IDs can be incremented after encountering a configurable amount of matching `BRDA` entries, by additionally using the `--set-block-ids-step <NUMBER>` flag.
+For example using `--set-block-ids-step 2` will increment the assigned block ID on every other matching `BRDA` entry like so:
+```diff
+BRDA:30,0,toggle[0]_0->1,1
+BRDA:30,0,toggle[0]_1->0,1
+-BRDA:30,0,toggle[1]_0->1,1
+-BRDA:30,0,toggle[1]_1->0,1
+-BRDA:30,0,toggle[2]_0->1,1
+-BRDA:30,0,toggle[2]_1->0,1
++BRDA:30,1,toggle[1]_0->1,1
++BRDA:30,1,toggle[1]_1->0,1
++BRDA:30,2,toggle[2]_0->1,1
++BRDA:30,2,toggle[2]_1->0,1
+```
+
 ## Merging
 
 Multiple `.info` files can be merged using the `info-merge.py` script, e.g.

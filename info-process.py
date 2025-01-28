@@ -5,7 +5,7 @@
 
 import argparse
 import handlers
-from parser import Stream, Record, EntryHandler, RemoveRecord
+from parser import Stream, Record, EntryHandler, RemoveRecord, CategoryHandler
 import re
 
 def two_way_toggle_handler(prefix: str, entries: list[str], file: Record) -> list[str]:
@@ -52,20 +52,31 @@ def normalize_hit_count_handler(prefix: str, params: str, file: Record) -> str:
     else:
         raise Exception(f'Unsupported prefix: {prefix}')
 
-def set_block_ids_handler(prefix: str, entries: list[str], record: Record) -> list[str]:
-    result: list[str] = []
-    counter = 0
-    current_line = -1
-    for line in entries:
-        line_number, _, name, hit_count = line.split(',', 3)
-        # group just based on line numbers
-        if current_line != int(line_number):
-            counter = -1
-            current_line = int(line_number)
-        counter += 1
-        result.append(f'{line_number},{counter},{name},{hit_count}')
+def create_block_ids_handler(increment: int) -> CategoryHandler:
+    if increment <= 0:
+        raise ValueError(f'invalid value in "--set-block-ids-step": {increment}, only integers greater than 0 are allowed')
 
-    return result
+    def handler(prefix: str, entries: list[str], record: Record) -> list[str]:
+        result: list[str] = []
+        counter = 0
+        increment_counter = -1
+        current_line = -1
+        for line in entries:
+            line_number, _, name, hit_count = line.split(',', 3)
+            # group just based on line numbers
+            if current_line != int(line_number):
+                counter = 0
+                increment_counter = -1
+                current_line = int(line_number)
+
+            increment_counter += 1
+            if increment_counter == increment:
+                increment_counter = 0
+                counter += 1
+
+            result.append(f'{line_number},{counter},{name},{hit_count}')
+        return result
+    return handler
 
 def main():
     parser = argparse.ArgumentParser()
@@ -88,6 +99,8 @@ def main():
                         help='Replace hit counts greater than 1 in BRDA and DA entries with 1')
     parser.add_argument('--set-block-ids', action='store_true', default=False,
                         help='Replace group number in BRDA with consecutive numbers for entries on the same line')
+    parser.add_argument('--set-block-ids-step', type=int, default=1,
+                        help='Block ID will be incremented after encountering the provided amount of matching entries')
     args = parser.parse_args()
 
     # Default to a in-place modification if no output path is specified
@@ -106,7 +119,7 @@ def main():
         stream.install_handler(['SF'], create_filter_handler(args.filter_out, negate=True))
 
     if args.set_block_ids:
-        stream.install_category_handler(['BRDA'], set_block_ids_handler)
+        stream.install_category_handler(['BRDA'], create_block_ids_handler(args.set_block_ids_step))
 
     if args.add_two_way_toggles:
         stream.install_category_handler(['BRDA'], two_way_toggle_handler)
