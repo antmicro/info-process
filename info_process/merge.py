@@ -1,12 +1,10 @@
-#!/usr/bin/env python3
-
 # Copyright (c) Antmicro
 # SPDX-License-Identifier: Apache-2.0
 
 import argparse
-import handlers
+from . import handlers
+from .parser import Stream, Record
 import os.path
-from parser import Stream, Record
 import re
 from typing import TextIO
 
@@ -109,8 +107,7 @@ def create_test_list(out: TextIO, stream: Stream):
             out.write('\n')
         out.write('end_of_record\n')
 
-def main():
-    parser = argparse.ArgumentParser()
+def prepare_args(parser: argparse.ArgumentParser):
     parser.add_argument('inputs', type=str, nargs='+', default=[],
                         help='.info files to be merged')
     parser.add_argument('--output', type=str, required=True,
@@ -121,8 +118,8 @@ def main():
                         help='Comma-separated set of strings that should be removed from paths before using them in a test list file, e.g., "coverage-,-all.info"; default: ".info"')
     parser.add_argument('--test-list-full-path', type=bool,
                         help='Prevents automatic common prefix removing from paths before using them in a test list file')
-    args = parser.parse_args()
 
+def main(args: argparse.Namespace):
     stream = Stream()
     stream.install_category_handler(['BRDA'], merge_brda)
     stream.install_category_handler(['DA'], merge_da)
@@ -156,6 +153,3 @@ def main():
         print(f'Saving test list in {args.test_list}')
         with open(args.test_list, 'wt') as f:
             create_test_list(f, stream)
-
-if __name__ == '__main__':
-    main()

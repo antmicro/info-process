@@ -1,0 +1,10 @@
+[project]
+name="info-process"
+version="0.0.0"
+description="info-process"
+authors= [
+  {name = "Antmicro"}
+]
+
+[project.scripts]
+info-process = "info_process.info_process:main"

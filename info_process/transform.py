@@ -1,11 +1,9 @@
-#!/usr/bin/env python3
-
 # Copyright (c) Antmicro
 # SPDX-License-Identifier: Apache-2.0
 
 import argparse
-import handlers
-from parser import Stream, Record, EntryHandler, RemoveRecord, CategoryHandler
+from . import handlers
+from .parser import Stream, Record, EntryHandler, RemoveRecord, CategoryHandler
 import re
 
 def two_way_toggle_handler(prefix: str, entries: list[str], file: Record) -> list[str]:
@@ -78,8 +76,7 @@ def create_block_ids_handler(increment: int) -> CategoryHandler:
         return result
     return handler
 
-def main():
-    parser = argparse.ArgumentParser()
+def prepare_args(parser: argparse.ArgumentParser):
     parser.add_argument('input', type=str,
                         help='Input file in the .info format that should be processed')
     parser.add_argument('--output', type=str,
@@ -101,8 +98,8 @@ def main():
                         help='Replace group number in BRDA with consecutive numbers for entries on the same line')
     parser.add_argument('--set-block-ids-step', type=int, default=1,
                         help='Block ID will be incremented after encountering the provided amount of matching entries')
-    args = parser.parse_args()
 
+def main(args: argparse.Namespace):
     # Default to a in-place modification if no output path is specified
     if args.output is None:
         args.output = args.input
@@ -141,6 +138,3 @@ def main():
 
     with open(args.output, 'wt') as f:
         stream.save(f)
-
-if __name__ == '__main__':
-    main()

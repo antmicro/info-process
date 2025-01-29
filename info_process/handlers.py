@@ -1,7 +1,7 @@
 # Copyright (c) Antmicro
 # SPDX-License-Identifier: Apache-2.0
 
-from parser import CategoryHandler, Record
+from .parser import CategoryHandler, Record
 
 def create_count_restore(prefix: str) -> CategoryHandler:
     def handler(_: str, entries: list[str], record: Record) -> list[str]:

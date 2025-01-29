@@ -1,1 +1,4 @@
 __pycache__
+.venv
+/build
+/info_process.egg-info
