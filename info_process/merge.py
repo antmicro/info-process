@@ -127,7 +127,7 @@ def main(args: argparse.Namespace):
     stream.install_category_handler(['BRH'], handlers.create_hit_count_restore('BRDA'))
     stream.install_category_handler(['LF'], handlers.create_count_restore('DA'))
     stream.install_category_handler(['LH'], handlers.create_hit_count_restore('DA'))
-    stream.install_category_handler(['TN', 'SF', 'FNF', 'FNH'], squash_misc)
+    stream.install_category_handler(['SF', 'FNF', 'FNH'], squash_misc)
 
     if args.test_list is not None:
         # os.path.commonpath is used instead of os.path.commonprefix to prevent automatic removal

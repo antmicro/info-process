@@ -119,6 +119,7 @@ class Stream:
         self.handlers: dict[str, list[EntryHandler]] = {}
         self.category_handlers: dict[str, list[CategoryHandler]] = {}
         self.records: list[Record] = []
+        self.test_name: str = None
 
     def install_handler(self, prefixes: Iterable[str], handler: EntryHandler):
         for prefix in prefixes:
@@ -154,16 +155,28 @@ class Stream:
                     raise
 
     def save(self, out: TextIO):
+        out.write(f"TN:{self.test_name or ''}\n")
         for record in self.records:
             record.save(out)
 
     def _get_record_lines(self, stream: TextIO, test_file: str | None) -> Generator[tuple[Record, list[tuple[str, str]]], Any, None]:
         record = Record(self)
         lines = []
+        test_name = None  # This is per merged file, self.test_name is one for the output file.
         for line in stream:
             line = line.strip()
             if line.startswith('#'):
                 continue # Skip comments
+            if line.startswith('TN:'):
+                if test_name:
+                    print(f"WARNING: Multiple TN entries found")
+                test_name = line.removeprefix('TN:')
+
+                if self.test_name is None:
+                    self.test_name = test_name
+                elif test_name != self.test_name:
+                    print(f"WARNING: Different TN entry: {test_name}, first TN found was: {self.test_name}")
+                continue
             if line == END_OF_RECORD:
                 yield (record, lines)
                 lines = []
@@ -172,6 +185,9 @@ class Stream:
                 prefix, data = split_entry(line)
                 record._update_stats(prefix, data, test_file)
                 lines.append((prefix, data))
+
+        if test_name is None:
+            print("WARNING: Missing TN entry")
 
     def _get_matching_record(self, record: Record) -> Record:
         assert record.source_file is not None, 'Record without a source file encountered'
