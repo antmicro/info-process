@@ -103,7 +103,7 @@ def create_test_list(out: TextIO, stream: Stream):
                 continue
 
             out.write(f'TEST:{line},')
-            out.write(';'.join(merged[line]))
+            out.write(';'.join(sorted(merged[line])))
             out.write('\n')
         out.write('end_of_record\n')
 
