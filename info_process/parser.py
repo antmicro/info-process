@@ -40,6 +40,7 @@ class Record:
             self._add_entry(prefix, data)
 
     def has_entry_for_line(self, prefix: str, line: int) -> bool:
+        assert type(line) == int
         if prefix not in self.line_info:
             return False
         return line in self.line_info[prefix]

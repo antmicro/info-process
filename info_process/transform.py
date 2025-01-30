@@ -17,7 +17,7 @@ def two_way_toggle_handler(prefix: str, entries: list[str], file: Record) -> lis
 def missing_brda_handler(prefix: str, params: str, file: Record) -> str:
     # <LINE NUMBER>,<HIT COUNT>
     line_number, hit_count = params.split(',', 1)
-    if not file.has_entry_for_line('BRDA', line_number):
+    if not file.has_entry_for_line('BRDA', int(line_number)):
         file.add('BRDA', f'{line_number},0,toggle,{hit_count}')
     return params
 
