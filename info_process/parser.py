@@ -1,22 +1,22 @@
 # Copyright (c) Antmicro
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import TextIO, Callable, Iterable, Generator, Any
+from typing import TextIO, Callable, Iterable, Generator, Any, Union, Optional
 
 END_OF_RECORD = 'end_of_record'
 
-EntryHandler = Callable[[str, str, 'Record'], Iterable[str] | str]
+EntryHandler = Callable[[str, str, 'Record'], Union[Iterable[str], str]]
 CategoryHandler = Callable[[str, list[str], 'Record'], list[str]]
 
 class RemoveRecord(Exception):
     pass
 
 class LineInfo:
-    def __init__(self, initial_file: str | None):
+    def __init__(self, initial_file: Optional[str]):
         self.test_files: set[str] = set()
         self.add_source(initial_file)
 
-    def add_source(self, test_file: str | None):
+    def add_source(self, test_file: Optional[str]):
         if test_file is not None:
             self.test_files.add(test_file)
 
@@ -27,7 +27,7 @@ def split_entry(entry: str) -> tuple[str, str]:
 class Record:
     def __init__(self, stream: 'Stream'):
         self.stream = stream
-        self.source_file: str | None = None
+        self.source_file: Optional[str] = None
         self.lines_per_prefix: dict[str, list[str]] = {}
         self.line_info: dict[str, dict[int, LineInfo]] = {}
         self.prefix_order: list[str] = []
@@ -99,7 +99,7 @@ class Record:
         self.lines_per_prefix[prefix].append(data)
         self._update_stats(prefix, data, None)
 
-    def _update_stats(self, prefix: str, data: str, test_file: str | None):
+    def _update_stats(self, prefix: str, data: str, test_file: Optional[str]):
         if self.source_file is None and prefix == 'SF':
             self.source_file = data
         elif prefix == 'BRDA' or prefix == 'DA':
@@ -160,7 +160,7 @@ class Stream:
         for record in self.records:
             record.save(out)
 
-    def _get_record_lines(self, stream: TextIO, test_file: str | None) -> Generator[tuple[Record, list[tuple[str, str]]], Any, None]:
+    def _get_record_lines(self, stream: TextIO, test_file: Optional[str]) -> Generator[tuple[Record, list[tuple[str, str]]], Any, None]:
         record = Record(self)
         lines = []
         test_name = None  # This is per merged file, self.test_name is one for the output file.
