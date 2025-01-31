@@ -3,21 +3,20 @@
 
 import argparse
 from . import handlers
-from .parser import Stream, Record, EntryHandler, RemoveRecord, CategoryHandler
+from .parser import Stream, Record, EntryHandler, RemoveRecord, CategoryHandler, split_brda, split_da
 import re
 
 def two_way_toggle_handler(prefix: str, entries: list[str], file: Record) -> list[str]:
     result: list[str] = []
     for entry in entries:
-        line_number, block, name, hit_count = entry.split(',', 3)
+        line_number, block, name, hit_count = split_brda(entry)
         result.append(f'{line_number},{block},{name}_0->1,{hit_count}')
         result.append(f'{line_number},{block},{name}_1->0,{hit_count}')
     return result
 
 def missing_brda_handler(prefix: str, params: str, file: Record) -> str:
-    # <LINE NUMBER>,<HIT COUNT>
-    line_number, hit_count = params.split(',', 1)
-    if not file.has_entry_for_line('BRDA', int(line_number)):
+    line_number, hit_count = split_da(params)
+    if not file.has_entry_for_line('BRDA', line_number):
         file.add('BRDA', f'{line_number},0,toggle,{hit_count}')
     return params
 
@@ -42,11 +41,11 @@ def create_path_strip_handler(pattern: str) -> EntryHandler:
 
 def normalize_hit_count_handler(prefix: str, params: str, file: Record) -> str:
     if prefix == 'DA':
-        line_number, hit_count = params.split(',', 1)
-        return f'{line_number},{int(hit_count) > 0:d}'
+        line_number, hit_count = split_da(params)
+        return f'{line_number},{hit_count > 0:d}'
     elif prefix == 'BRDA':
-        line_number, block, name, hit_count = params.split(',', 3)
-        return f'{line_number},{block},{name},{int(hit_count) > 0:d}'
+        line_number, block, name, hit_count = split_brda(params)
+        return f'{line_number},{block},{name},{hit_count > 0:d}'
     else:
         raise Exception(f'Unsupported prefix: {prefix}')
 
@@ -60,12 +59,12 @@ def create_block_ids_handler(increment: int) -> CategoryHandler:
         increment_counter = -1
         current_line = -1
         for line in entries:
-            line_number, _, name, hit_count = line.split(',', 3)
+            line_number, _, name, hit_count = split_brda(line)
             # group just based on line numbers
-            if current_line != int(line_number):
+            if current_line != line_number:
                 counter = 0
                 increment_counter = -1
-                current_line = int(line_number)
+                current_line = line_number
 
             increment_counter += 1
             if increment_counter == increment:

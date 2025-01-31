@@ -24,6 +24,42 @@ def split_entry(entry: str) -> tuple[str, str]:
     prefix, data = entry.split(':', 1)
     return (prefix, data)
 
+def split_da(entry: str) -> tuple[int, int]:
+    line_number, hit_count = entry.split(',', 1)
+
+    line_number = int(line_number)
+    assert line_number >= 0
+
+    hit_count = int(hit_count)
+    assert hit_count >= 0
+
+    return line_number, hit_count
+
+def split_brda(entry: str) -> tuple[int, int, str, int]:
+    line_number, block, name, hit_count = entry.split(',', 3)
+
+    line_number = int(line_number)
+    assert line_number >= 0
+
+    block = int(block)
+    assert block >= 0
+
+    hit_count = int(hit_count)
+    assert hit_count >= 0
+
+    return line_number, block, name, hit_count
+
+def get_line_number_and_hit_count(entry: str) -> tuple[int, int]:
+    line_number, *_, hit_count = entry.split(',')
+
+    line_number = int(line_number)
+    assert line_number >= 0
+
+    hit_count = int(hit_count)
+    assert hit_count >= 0
+
+    return int(line_number), int(hit_count)
+
 class Record:
     def __init__(self, stream: 'Stream'):
         self.stream = stream
@@ -103,12 +139,11 @@ class Record:
         if self.source_file is None and prefix == 'SF':
             self.source_file = data
         elif prefix == 'BRDA' or prefix == 'DA':
-            line_number, *_, hit_count = data.split(',')
-            line_number = int(line_number)
+            line_number, hit_count = get_line_number_and_hit_count(data)
             if prefix not in self.line_info:
                 self.line_info[prefix] = {}
 
-            if hit_count == '0':
+            if hit_count == 0:
                 test_file = None
             if line_number not in self.line_info[prefix]:
                 self.line_info[prefix][line_number] = LineInfo(test_file)

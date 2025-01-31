@@ -3,7 +3,7 @@
 
 import argparse
 from . import handlers
-from .parser import Stream, Record
+from .parser import Stream, Record, split_brda, split_da
 import os.path
 import re
 from typing import TextIO
@@ -16,23 +16,20 @@ def merge_brda(prefix: str, entries: list[str], record: Record) -> list[str]:
 
     SPLIT_REGEX = re.compile('([0-9]+)')
     def sort_key(entry: str) -> tuple[int, str]:
-        line_number, _, name, _ = entry.split(',', 3)
+        line_number, _, name, _ = split_brda(entry)
         # Expand numbers encountered in names with leading zeros to make lexicographical
         # sorting order them correctly. E.g. `toggle_10_1` will be expanded to
         # `toggle_0000000010_0000000000` ordering it correctly after `toggle_2_0`
         name = ''.join(process_number(x) if x.isnumeric() else x for x in SPLIT_REGEX.split(name))
-        return (int(line_number), name)
+        return (line_number, name)
 
     result: list[str] = []
-    last_line_number = ""
+    last_line_number = -1
     last_block = 0
     last_name = ""
     last_hit_count = 0
     for entry in sorted(entries, key=sort_key):
-        line_number, block, name, hit_count = entry.split(',', 3)
-        block = int(block)
-        hit_count = int(hit_count)
-
+        line_number, block, name, hit_count = split_brda(entry)
         # Increase the hit count if this entry is the same as the previous one
         if line_number == last_line_number and name == last_name:
             last_hit_count += hit_count
@@ -54,22 +51,22 @@ def merge_brda(prefix: str, entries: list[str], record: Record) -> list[str]:
 
 def merge_da(prefix: str, entries: list[str], record: Record) -> list[str]:
     def sort_key(entry: str) -> int:
-        line_number, _ = entry.split(',',  1)
-        return int(line_number)
+        line_number, _ = split_da(entry)
+        return line_number
 
     result: list[str] = []
-    last_line_number = ""
+    last_line_number = -1
     last_hit_count = 0
     for entry in sorted(entries, key=sort_key):
-        line_number, hit_count = entry.split(',', 1)
+        line_number, hit_count = split_da(entry)
         # Increase the hit count if this entry is the same as the previous one
         if line_number == last_line_number:
-            last_hit_count += int(hit_count)
+            last_hit_count += hit_count
             continue
 
         result.append(f'{last_line_number},{last_hit_count}')
         last_line_number = line_number
-        last_hit_count = int(hit_count)
+        last_hit_count = hit_count
 
     # In the loop entries are only added when name/line changes, so the last entry
     # needs to be added explicitly after the loop finishes.
