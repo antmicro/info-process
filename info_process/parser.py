@@ -5,7 +5,8 @@ from typing import TextIO, Callable, Iterable, Generator, Any, Union, Optional
 
 END_OF_RECORD = 'end_of_record'
 
-EntryHandler = Callable[[str, str, 'Record'], Union[Iterable[str], str]]
+# Returning `None` causes the processed entry to be removed from the record
+EntryHandler = Callable[[str, str, 'Record'], Union[Iterable[str], str, None]]
 CategoryHandler = Callable[[str, list[str], 'Record'], list[str]]
 
 class RemoveRecord(Exception):
@@ -70,8 +71,12 @@ class Record:
 
     def add(self, prefix: str, data: str):
         if prefix in self.stream.handlers:
-            for processed in self._run_handlers(self.stream.handlers[prefix], prefix, data):
-                self._add_entry(prefix, processed)
+            processed = self._run_handlers(self.stream.handlers[prefix], prefix, data)
+            if processed is None:
+                return
+
+            for entry in processed:
+                self._add_entry(prefix, entry)
         else:
             self._add_entry(prefix, data)
 
@@ -117,6 +122,8 @@ class Record:
             transformed = []
             for x in result:
                 processed = handler(prefix, x, self)
+                if processed is None:
+                    return None
                 if isinstance(processed, str):
                     transformed.append(processed)
                 else:
