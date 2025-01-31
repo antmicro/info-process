@@ -3,77 +3,86 @@
 
 import argparse
 from . import handlers
-from .parser import Stream, Record, split_brda, split_da
+from .parser import Stream, Record, split_brda, split_da, EntryHandler
 import os.path
 import re
-from typing import TextIO
+from typing import TextIO, Optional, Union
 
-def merge_brda(prefix: str, entries: list[str], record: Record) -> list[str]:
-    NUMBER_FILL_SIZE = 10
-    def process_number(x: str) -> str:
-        assert len(x) <= NUMBER_FILL_SIZE, f'Number larger than 10^{NUMBER_FILL_SIZE} encountered: {x}'
-        return x.zfill(NUMBER_FILL_SIZE)
+def create_merge_da_handler() -> EntryHandler:
+    cache: dict[tuple[Record, int], int] = {}
+    def handler(prefix: str, params: str, record: Record) -> Optional[str]:
+        own_line_number, own_hit_count = split_da(params)
+        cache_key = (record, own_line_number)
+        lines = record.lines_per_prefix.get(prefix, [])
+
+        if cache_key not in cache:
+            cache[cache_key] = len(lines)
+            return params
+
+        entry_number = cache[cache_key]
+        line_number, hit_count = split_da(lines[entry_number])
+        assert line_number == own_line_number
+
+        lines[entry_number] = f'{own_line_number},{own_hit_count + hit_count}'
+        return None
+
+    return handler
+
+def create_merge_brda_handler() -> EntryHandler:
+    cache: dict[tuple[Record, int, str], int] = {}
+    def handler(prefix: str, params: str, record: Record) -> Optional[str]:
+        own_line_number, own_block, own_name, own_hit_count = split_brda(params)
+        cache_key = (record, own_line_number, own_name)
+        lines = record.lines_per_prefix.get(prefix, [])
+
+        if cache_key not in cache:
+            cache[cache_key] = len(lines)
+            return params
+
+        entry_number = cache[cache_key]
+        line_number, block, name, hit_count = split_brda(lines[entry_number])
+        assert line_number == own_line_number
+        assert name == own_name
+
+        lines[entry_number] = f'{own_line_number},{max(block, own_block)},{own_name},{own_hit_count + hit_count}'
+        return None
+
+    return handler
+
+def sort_da(prefix: str, entries: list[str], record: Record) -> list[str]:
+    def key(value: str) -> int:
+        line_number, _ = split_da(value)
+        return line_number
+    entries.sort(key=key)
+    return entries
+
+def sort_brda(prefix: str, entries: list[str], record: Record) -> list[str]:
+    def key(value: str) -> tuple[int, int]:
+        line_number, block, _, _ = split_brda(value)
+        return (line_number, block)
+    entries.sort(key=key)
+    return entries
+
+def sort_brda_names(prefix: str, entries: list[str], record: Record) -> list[str]:
+    def convert(value: str) -> str:
+        FILL_SIZE = 20
+        if value.isdigit():
+            assert len(value) <= FILL_SIZE, f'Number larger than 10^{FILL_SIZE} encountered'
+            # Expand numbers encountered in names with leading zeros to make lexicographical
+            # sorting order them correctly. E.g. `toggle_10_1` will be expanded to
+            # `toggle_0000000010_0000000000` ordering it correctly after `toggle_2_0`
+            return value.zfill(FILL_SIZE)
+        else:
+            return value
 
     SPLIT_REGEX = re.compile('([0-9]+)')
-    def sort_key(entry: str) -> tuple[int, str]:
-        line_number, _, name, _ = split_brda(entry)
-        # Expand numbers encountered in names with leading zeros to make lexicographical
-        # sorting order them correctly. E.g. `toggle_10_1` will be expanded to
-        # `toggle_0000000010_0000000000` ordering it correctly after `toggle_2_0`
-        name = ''.join(process_number(x) if x.isnumeric() else x for x in SPLIT_REGEX.split(name))
+    def key(value: str) -> tuple[int, list[Union[str, int]]]:
+        line_number, _, name, _ = split_brda(value)
+        name = ''.join(convert(x) for x in SPLIT_REGEX.split(name))
         return (line_number, name)
 
-    result: list[str] = []
-    last_line_number = -1
-    last_block = 0
-    last_name = ""
-    last_hit_count = 0
-    for entry in sorted(entries, key=sort_key):
-        line_number, block, name, hit_count = split_brda(entry)
-        # Increase the hit count if this entry is the same as the previous one
-        if line_number == last_line_number and name == last_name:
-            last_hit_count += hit_count
-            last_block = max(last_block, block)
-            continue
-
-        result.append(f'{last_line_number},{last_block},{last_name},{last_hit_count}')
-        last_line_number = line_number
-        last_block = block
-        last_name = name
-        last_hit_count = hit_count
-
-    # In the loop entries are only added when name/line changes, so the last entry
-    # needs to be added explicitly after the loop finishes.
-    result.append(f'{last_line_number},{last_block},{last_name},{last_hit_count}')
-    # First entry is dropped, as it contains values used to initialize the `last_*` variables
-    # and not actual data from any of the records.
-    return result[1:]
-
-def merge_da(prefix: str, entries: list[str], record: Record) -> list[str]:
-    def sort_key(entry: str) -> int:
-        line_number, _ = split_da(entry)
-        return line_number
-
-    result: list[str] = []
-    last_line_number = -1
-    last_hit_count = 0
-    for entry in sorted(entries, key=sort_key):
-        line_number, hit_count = split_da(entry)
-        # Increase the hit count if this entry is the same as the previous one
-        if line_number == last_line_number:
-            last_hit_count += hit_count
-            continue
-
-        result.append(f'{last_line_number},{last_hit_count}')
-        last_line_number = line_number
-        last_hit_count = hit_count
-
-    # In the loop entries are only added when name/line changes, so the last entry
-    # needs to be added explicitly after the loop finishes.
-    result.append(f'{last_line_number},{last_hit_count}')
-    # First entry is dropped, as it contains values used to initialize the `last_*` variables
-    # and not actual data from any of the records.
-    return result[1:]
+    entries.sort(key=key)
+    return entries
 
 def squash_misc(prefix: str, entries: list[str], record: Record) -> list[str]:
     unique_entries = set(entries)
@@ -115,11 +124,20 @@ def prepare_args(parser: argparse.ArgumentParser):
                         help='Comma-separated set of strings that should be removed from paths before using them in a test list file, e.g., "coverage-,-all.info"; default: ".info"')
     parser.add_argument('--test-list-full-path', type=bool,
                         help='Prevents automatic common prefix removing from paths before using them in a test list file')
+    parser.add_argument('--sort-brda-names', action='store_true', default=False,
+                        help='Sort BRDA entries using their names')
 
 def main(args: argparse.Namespace):
     stream = Stream()
-    stream.install_category_handler(['BRDA'], merge_brda)
-    stream.install_category_handler(['DA'], merge_da)
+
+    # NOTE: All regular handlers for `BRDA` and `DA` entries
+    # should be placed BEFORE those two, as they make assumptions
+    # about the order and amount of entries!!!
+    stream.install_handler(['BRDA'], create_merge_brda_handler())
+    stream.install_handler(['DA'], create_merge_da_handler())
+
+    stream.install_category_handler(['BRDA'], sort_brda_names if args.sort_brda_names else sort_brda)
+    stream.install_category_handler(['DA'], sort_da)
     stream.install_category_handler(['BRF'], handlers.create_count_restore('BRDA'))
     stream.install_category_handler(['BRH'], handlers.create_hit_count_restore('BRDA'))
     stream.install_category_handler(['LF'], handlers.create_count_restore('DA'))
