@@ -1,0 +1,4 @@
+include:
+  - project: info-process
+    file: test.yml
+    ref: additional-tests
