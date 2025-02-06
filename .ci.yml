@@ -1,9 +1,9 @@
 variables:
   # Keep in sync with include/ref.
-  TESTS_SHA: a912a8b6
+  TESTS_SHA: a9e7f1a3
 
 include:
   - project: info-process-tests
     file: test.yml
     # Keep in sync with TESTS_SHA.
-    ref: a912a8b6
+    ref: a9e7f1a3
