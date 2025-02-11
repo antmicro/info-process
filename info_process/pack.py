@@ -122,7 +122,7 @@ def pack_zip(output: str, config: CoverviewConfig, sources: str, files_to_pack: 
 
     with ZipFile(output, 'x', compression=ZIP_DEFLATED) as archive:
         # Write the config
-        archive.writestr('config.json', json.dumps(config))
+        archive.writestr('config.json', json.dumps(config, indent=2))
 
         # Write combined sources
         archive.writestr('sources.txt', sources)
@@ -140,7 +140,7 @@ def pack_directory(output: str, config: CoverviewConfig, sources: str, files_to_
 
     # Write the config
     with open(os.path.join(output, 'config.json'), 'wt') as file:
-        file.write(json.dumps(config))
+        file.write(json.dumps(config, indent=2))
 
     # Write combined sources
     # File is opened as binary to prevent Python from modifying line end characters
