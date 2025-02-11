@@ -15,6 +15,8 @@ The tool can be installed using `pip`:
 pip install git+https://github.com/antmicro/info-process.git
 ```
 
+The minimum supported Python version is 3.9
+
 ## Transforming `.info` files
 
 Various transformations can be made to the provided `.info` files.

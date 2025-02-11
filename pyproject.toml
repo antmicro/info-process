@@ -1,5 +1,6 @@
 [project]
 name="info-process"
+requires-python = ">=3.9"
 version="0.0.0"
 description="info-process"
 authors= [
