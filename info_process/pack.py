@@ -19,7 +19,7 @@ class CoverviewConfig(TypedDict):
 
 def generate_datasets(coverage_files: list[str], description_files: list[str]) -> Datasets:
     info_pattern = re.compile(r'coverage_(?P<coverage_type>\w+)_(?P<dataset>\w+).info')
-    datasets = Datasets()
+    working_datasets = Datasets()
 
     # Find .info files
     for path in coverage_files:
@@ -33,20 +33,36 @@ def generate_datasets(coverage_files: list[str], description_files: list[str]) -
         coverage_type = m.group('coverage_type')
         dataset = m.group('dataset')
 
-        if dataset not in datasets:
-            datasets[dataset] = {}
+        if dataset not in working_datasets:
+            working_datasets[dataset] = {}
 
         # Find a matching .desc file
         description_basename = f'tests_{coverage_type}_{dataset}.desc'
         for description_path in description_files:
             if os.path.basename(description_path) == description_basename:
-                datasets[dataset][coverage_type] = [basename, description_basename]
+                working_datasets[dataset][coverage_type] = [basename, description_basename]
                 break
         else:
-            datasets[dataset][coverage_type] = basename
+            working_datasets[dataset][coverage_type] = basename
             print(f'WARNING: Coverage file does not have a matching test description file ({description_basename}): {basename}')
 
-    return datasets
+    # Convert the collected dataset to a dataset that is sorted in the correct order
+    # Note that this relies on the fact that converting a dict to a JSON string puts keys in
+    # the same order that keys where added into the dict
+    key_order = ['line', 'branch', 'toggle']
+    final_datasets = Datasets()
+    for dataset in working_datasets:
+        # Prepare keys, so that they are processed in order `line`, `branch`, `toggle`, everything else lexicographically
+        for key in key_order + sorted(set(working_datasets[dataset].keys()) - set(key_order)):
+            if key not in working_datasets[dataset]:
+                continue
+
+            if dataset not in final_datasets:
+                final_datasets[dataset] = {}
+
+            final_datasets[dataset][key] = working_datasets[dataset][key]
+
+    return final_datasets
 
 # Returns (coverage_files: list[str], description_files: list[str])
 def get_coverage_files(config: CoverviewConfig, available_coverages: list[str], available_descriptions: list[str]) -> tuple[list[str], list[str]]:
