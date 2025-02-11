@@ -7,8 +7,9 @@ import json
 import os
 from .parser import Stream, Record
 import re
+import shutil
 import sys
-from typing import TypedDict, Optional, Union
+from typing import TypedDict, Optional, Union, Iterable
 from zipfile import ZipFile, ZIP_DEFLATED
 
 Datasets = dict[str, dict[str, Union[str, list[str]]]]
@@ -113,6 +114,43 @@ def get_sources(coverage_files: list[str], root: Optional[str]) -> str:
 
     return ''.join(sources)
 
+def pack_zip(output: str, config: CoverviewConfig, sources: str, files_to_pack: Iterable[str]):
+    # Remove previous archive, if it exists to not mixup any files
+    if os.path.isfile(output):
+        print(f'Removing previous output archive: {output}')
+        os.remove(output)
+
+    with ZipFile(output, 'x', compression=ZIP_DEFLATED) as archive:
+        # Write the config
+        archive.writestr('config.json', json.dumps(config))
+
+        # Write combined sources
+        archive.writestr('sources.txt', sources)
+
+        # Copy all files (coverage, description and extra files)
+        for file in files_to_pack:
+            archive.write(file, os.path.basename(file))
+
+def pack_directory(output: str, config: CoverviewConfig, sources: str, files_to_pack: Iterable[str]):
+    # Remove the previous directory, if it exists to not mixup any files
+    if os.path.isdir(output):
+        print(f'Removing previous output directory: {output}')
+        shutil.rmtree(output, ignore_errors=True)
+    os.makedirs(output)
+
+    # Write the config
+    with open(os.path.join(output, 'config.json'), 'wt') as file:
+        file.write(json.dumps(config))
+
+    # Write combined sources
+    # File is opened as binary to prevent Python from modifying line end characters
+    with open(os.path.join(output, 'sources.txt'), 'wb') as file:
+        file.write(sources.encode('utf-8'))
+
+    # Copy all files (coverage, description and extra files)
+    for file in files_to_pack:
+        shutil.copy(file, output)
+
 def prepare_args(parser: argparse.ArgumentParser):
     parser.add_argument('--output', required=True, type=str,
                         help="Output archive's path")
@@ -142,20 +180,10 @@ def main(args: argparse.Namespace):
     used_coverage, used_descriptions = get_coverage_files(config, args.coverage_files, args.description_files)
     sources = get_sources(used_coverage, args.sources_root)
 
-    if os.path.isfile(args.output):
-        os.remove(args.output)
-
-    with ZipFile(args.output, 'x', compression=ZIP_DEFLATED) as archive:
-        # Write the config
-        archive.writestr('config.json', json.dumps(config))
-
-        # Write coverage files and test description files
-        for file in itertools.chain(used_coverage, used_descriptions):
-            archive.write(file, os.path.basename(file))
-
-        # Write combined sources
-        archive.writestr('sources.txt', sources)
-
-        # Write extra files
-        for path in args.extra_files:
-            archive.write(path, os.path.basename(path))
+    all_files = itertools.chain(used_coverage, used_descriptions, args.extra_files)
+    if args.output.lower().endswith('.zip'):
+        print(f'Creating an output .zip archive: {args.output}')
+        pack_zip(args.output, config, sources, all_files)
+    else:
+        print(f'Creating an output directory: {args.output}')
+        pack_directory(args.output, config, sources, all_files)
