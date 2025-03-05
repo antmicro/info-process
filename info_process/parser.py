@@ -1,6 +1,7 @@
 # Copyright (c) Antmicro
 # SPDX-License-Identifier: Apache-2.0
 
+import itertools
 from typing import TextIO, Callable, Iterable, Generator, Any, Union, Optional
 
 END_OF_RECORD = 'end_of_record'
@@ -90,8 +91,12 @@ class Record:
         for prefix in self.prefix_order:
             data = self.lines_per_prefix[prefix]
             if prefix in self.stream.category_handlers:
-                for handler in self.stream.category_handlers[prefix]:
-                    data = handler(prefix, data, self)
+                handlers = itertools.chain(self.stream.category_handlers[prefix], self.stream.generic_category_handlers)
+            else:
+                handlers = self.stream.generic_category_handlers
+
+            for handler in handlers:
+                data = handler(prefix, data, self)
 
             self.lines_per_prefix[prefix] = data
             for line in self.lines_per_prefix[prefix]:
@@ -161,6 +166,7 @@ class Stream:
     def __init__(self):
         self.handlers: dict[str, list[EntryHandler]] = {}
         self.category_handlers: dict[str, list[CategoryHandler]] = {}
+        self.generic_category_handlers: list[CategoryHandler] = []
         self.records: list[Record] = []
         self.test_name: str = None
 
@@ -177,6 +183,9 @@ class Stream:
                 self.category_handlers[prefix] = [handler]
             else:
                 self.category_handlers[prefix].append(handler)
+
+    def install_generic_category_handler(self, handler: CategoryHandler):
+        self.generic_category_handlers.append(handler)
 
     def load(self, stream: TextIO):
         for record, lines in self._get_record_lines(stream, None):
