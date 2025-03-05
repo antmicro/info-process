@@ -59,7 +59,7 @@ def get_line_number_and_hit_count(entry: str) -> tuple[int, int]:
     hit_count = int(hit_count)
     assert hit_count >= 0
 
-    return int(line_number), int(hit_count)
+    return line_number, hit_count
 
 class Record:
     def __init__(self, stream: 'Stream'):
