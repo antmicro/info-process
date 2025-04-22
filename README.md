@@ -193,6 +193,20 @@ The created archive can be directly used in Coverview.
 If path provided in `--output` has `.zip` extension then a zip archive containing all needed files will be created.
 If this extension is not present then the results will be placed in a directory.
 
+## Comparing coverage between two `.info` or two `.zip` files
+
+Comparison table can be created  using
+```bash
+info process compare base_file.[zip|info] changed_file.[zip|info]
+```
+
+which will output coverage, lines count, hit count and relative change between them for files for which any of them changed.
+To output summary that includes unchanged files, one might use the `--output-all` flag.
+Default output format is CSV, but can be changed to human-readable table using `--table` switch.
+It is also possible to add red and green colour for highlighting the relative changes between coverages using `--colour`.
+
+Please note that both files must have the same extension.
+
 ### Generating the "datasets" property
 
 Coverview requires a `config.json` file with `datasets` property, which stores information how the coverage data should be displayed.

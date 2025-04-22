@@ -7,6 +7,7 @@ from . import transform
 from . import pack
 from . import extract
 from . import waive
+from . import compare
 import sys
 
 TRANSFORM_CMD = 'transform'
@@ -14,6 +15,7 @@ MERGE_CMD = 'merge'
 PACK_CMD = 'pack'
 EXTRACT_CMD = 'extract'
 WAIVE_CMD = 'waive'
+COMPARE_CMD = 'compare'
 
 def main():
     parser = argparse.ArgumentParser()
@@ -33,6 +35,10 @@ def main():
     waive.prepare_args(
         subparsers.add_parser(WAIVE_CMD,
                               help='Waive entries based on waiver file'))
+    compare.prepare_args(
+        subparsers.add_parser(COMPARE_CMD,
+                              help='Compare two .info or two .zip files'))
+
     args = parser.parse_args()
 
     cmd = args.command_name
@@ -46,6 +52,8 @@ def main():
         extract.main(args)
     elif cmd == WAIVE_CMD:
         waive.main(args)
+    elif cmd == COMPARE_CMD:
+        compare.main(args)
     else:
         print(f'Invalid subcommand: {cmd}')
         sys.exit(1)
