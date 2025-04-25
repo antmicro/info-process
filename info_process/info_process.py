@@ -8,6 +8,7 @@ from . import pack
 from . import extract
 from . import waive
 from . import compare
+from . import archive_diff
 import sys
 
 TRANSFORM_CMD = 'transform'
@@ -16,6 +17,7 @@ PACK_CMD = 'pack'
 EXTRACT_CMD = 'extract'
 WAIVE_CMD = 'waive'
 COMPARE_CMD = 'compare'
+ARCHIVE_DIFF_CMD = 'archive-diff'
 
 def main():
     parser = argparse.ArgumentParser()
@@ -38,6 +40,9 @@ def main():
     compare.prepare_args(
         subparsers.add_parser(COMPARE_CMD,
                               help='Compare two .info or two .zip files'))
+    archive_diff.prepare_args(
+        subparsers.add_parser(ARCHIVE_DIFF_CMD,
+                              help='Create archive that contains diff between two archives'))
 
     args = parser.parse_args()
 
@@ -54,6 +59,8 @@ def main():
         waive.main(args)
     elif cmd == COMPARE_CMD:
         compare.main(args)
+    elif cmd == ARCHIVE_DIFF_CMD:
+        archive_diff.main(args)
     else:
         print(f'Invalid subcommand: {cmd}')
         sys.exit(1)

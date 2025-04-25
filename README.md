@@ -207,6 +207,16 @@ It is also possible to add red and green colour for highlighting the relative ch
 
 Please note that both files must have the same extension.
 
+## Generating diff Coverview archive
+
+Diff archive can be created using
+```bash
+info-process archive-diff base_file.zip changed_file.zip --output output.zip
+```
+
+Resulting archive will be render uncovered for regressions, covered for improved coverage and no formatting for lines that was not affected.
+With current implementation, only archives with unchanged sources can be diffed, trying to create archive from inputs with different sources will lead to `AssertionError`.
+
 ### Generating the "datasets" property
 
 Coverview requires a `config.json` file with `datasets` property, which stores information how the coverage data should be displayed.
