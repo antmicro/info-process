@@ -6,12 +6,14 @@ from . import merge
 from . import transform
 from . import pack
 from . import extract
+from . import waive
 import sys
 
 TRANSFORM_CMD = 'transform'
 MERGE_CMD = 'merge'
 PACK_CMD = 'pack'
 EXTRACT_CMD = 'extract'
+WAIVE_CMD = 'waive'
 
 def main():
     parser = argparse.ArgumentParser()
@@ -28,6 +30,9 @@ def main():
     extract.prepare_args(
         subparsers.add_parser(EXTRACT_CMD,
                               help='Extract coverage type from a combined .info file into a separate file'))
+    waive.prepare_args(
+        subparsers.add_parser(WAIVE_CMD,
+                              help='Waive entries based on waiver file'))
     args = parser.parse_args()
 
     cmd = args.command_name
@@ -39,6 +44,8 @@ def main():
         pack.main(args)
     elif cmd == EXTRACT_CMD:
         extract.main(args)
+    elif cmd == WAIVE_CMD:
+        waive.main(args)
     else:
         print(f'Invalid subcommand: {cmd}')
         sys.exit(1)
