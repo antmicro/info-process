@@ -160,20 +160,20 @@ def summary_with_categories(use_table: bool, streams_pairs: dict[str, tuple[Stre
 def extract_file_name(file_path: str) -> str:
     return os.path.splitext(os.path.basename(file_path))[0]
 
+def get_datasets_and_descriptions(zip_file: ZipFile) -> set[str]:
+    files_in_zip = zip_file.namelist()
+    assert "config.json" in files_in_zip, f"{zip_file.filename} is not a valid archive - does not contain `config.json`"
+    config_json = json.load(unzip_to_stringio(zip_file, "config.json"))
+    coverage_files, description_files = get_coverage_files(config_json,
+                                           available_coverages=[f for f in files_in_zip if f.endswith(".info")],
+                                           available_descriptions=[f for f in files_in_zip if f.endswith(".desc")])
+    return set(coverage_files), set(description_files)
+
+def unzip_to_stringio(zip_file: ZipFile, name: str) -> io.StringIO:
+    unzipped = zip_file.read(name).decode('utf-8')
+    return io.StringIO(unzipped)
+
 def unpack_existing_into_stream_pairs(path_this, path_other) -> dict[str, tuple[Stream, Stream]]:
-    def unzip_to_stringio(zip_file: ZipFile, name: str) -> io.StringIO:
-        unzipped = zip_file.read(name).decode('utf-8')
-        return io.StringIO(unzipped)
-
-    def get_datasets(zip_file: ZipFile) -> set[str]:
-        files_in_zip = zip_file.namelist()
-        assert "config.json" in files_in_zip, f"{zip_file.filename} is not a valid archive - does not contain `config.json`"
-        config_json = json.load(unzip_to_stringio(zip_file, "config.json"))
-        coverage_files, _ = get_coverage_files(config_json,
-                                               available_coverages=[f for f in files_in_zip if f.endswith(".info")],
-                                               available_descriptions=[f for f in files_in_zip if f.endswith(".desc")])
-        return set(coverage_files)
-
     def unzip_to_stream(zip_file: ZipFile, name: str) -> Stream:
         stream = Stream()
         info_io = unzip_to_stringio(zip_file, name)
@@ -183,7 +183,8 @@ def unpack_existing_into_stream_pairs(path_this, path_other) -> dict[str, tuple[
     stream_pairs = {}
 
     with ZipFile(path_this, 'r') as this_zip, ZipFile(path_other, 'r') as other_zip:
-        this_datasets, other_datasets = get_datasets(this_zip), get_datasets(other_zip)
+        this_datasets, _ = get_datasets_and_descriptions(this_zip)
+        other_datasets, _ = get_datasets_and_descriptions(other_zip)
         assert len(this_datasets & other_datasets) > 0,  "Archives need to have at least one common dataset file to be comparable"
 
         for common_file in this_datasets & other_datasets:
