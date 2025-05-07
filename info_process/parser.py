@@ -88,6 +88,10 @@ class Record:
         return line in self.line_info[prefix]
 
     def save(self, stream: TextIO):
+        stream.write(str(self))
+
+    def __str__(self) -> str:
+        output: str = ""
         for prefix in self.prefix_order:
             data = self.lines_per_prefix[prefix]
             if prefix in self.stream.category_handlers:
@@ -99,10 +103,11 @@ class Record:
                 data = handler(prefix, data, self)
 
             self.lines_per_prefix[prefix] = data
-            for line in self.lines_per_prefix[prefix]:
-                stream.write(f'{prefix}:{line}\n')
-        stream.write(END_OF_RECORD)
-        stream.write('\n')
+            output += "\n".join(f'{prefix}:{line}' for line in self.lines_per_prefix[prefix])
+            if len(self.lines_per_prefix[prefix]) > 0:
+                output += "\n"
+        output += f'{END_OF_RECORD}'
+        return output
 
     def _merge_stats(self, other: 'Record'):
         for prefix in other.line_info:
@@ -207,9 +212,13 @@ class Stream:
                     raise
 
     def save(self, out: TextIO):
-        out.write(f"TN:{self.test_name or ''}\n")
-        for record in self.records:
-            record.save(out)
+        out.write(str(self))
+
+    def __str__(self) -> str:
+        output: str = ""
+        output += f"TN:{self.test_name or ''}\n"
+        output += "\n".join(str(record) for record in self.records.values())
+        return output + '\n'
 
     def _get_record_lines(self, stream: TextIO, test_file: Optional[str]) -> Generator[tuple[Record, list[tuple[str, str]]], Any, None]:
         record = Record(self)
