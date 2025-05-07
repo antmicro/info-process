@@ -195,9 +195,9 @@ If this extension is not present then the results will be placed in a directory.
 
 ## Comparing coverage between two `.info` or two `.zip` files
 
-Comparison table can be created  using
+Comparison table can be created using
 ```bash
-info process compare base_file.[zip|info] changed_file.[zip|info]
+info-process compare base_file.[zip|info] changed_file.[zip|info]
 ```
 
 which will output coverage, lines count, hit count and relative change between them for files for which any of them changed.
