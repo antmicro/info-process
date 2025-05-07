@@ -62,6 +62,24 @@ def get_line_number_and_hit_count(entry: str) -> tuple[int, int]:
 
     return line_number, hit_count
 
+def match_second_entries_by(first, second):
+    result_dict = {}
+    first_entries = {key(entry): entry for entry in first}
+    second_entries = {key(entry): entry for entry in second}
+
+def match_second_prefix_entries_by(first: 'Record', second: 'Record', prefix: str, key) -> dict[str, tuple[str]]:
+    if second is None or any([prefix not in x.lines_per_prefix for x in (first, second)]):
+        return {}
+
+    result_dict = {}
+    first_entries = {key(entry): entry for entry in first.lines_per_prefix[prefix]}
+    second_entries = {key(entry): entry for entry in second.lines_per_prefix[prefix]}
+
+    for name in second_entries.keys():
+        result_dict[name] = (first_entries.get(name, None), second_entries.get(name))
+
+    return result_dict
+
 class Record:
     def __init__(self, stream: 'Stream'):
         self.stream = stream
@@ -70,6 +88,64 @@ class Record:
         self.line_info: dict[str, dict[int, LineInfo]] = {}
         self.prefix_order: list[str] = []
         self.source_file_prefix = self.stream.source_file_prefix
+
+    def diff(self, other: 'Record') -> 'Record':
+        # diff entries:
+        #  in_old & in_new &  old_hit == new_hit -> skip line
+        #  in_old & in_new &  old_hit & !new_hit -> set visited to 0
+        #  in_old & in_new & !old_hit &  new_hit -> set visited to 1
+        # !in_old & in_new                       -> set visited to new_hit
+        #          !in_new                       -> skip line
+        assert other is not None, "Should never diff against None"
+
+        class CoverageLine:
+            def __init__(self, line: str):
+                assert line is not None
+                base_string, hit_count = line.rsplit(',', 1)
+                self.line_hit = int(hit_count) > 0
+                self.base = base_string
+
+            @classmethod
+            def instance_or_none(cls, line: str):
+                if line is None:
+                    return None
+                return cls(line)
+
+            def __repr__(self) -> str:
+                return f"{self.base},{int(self.line_hit)}"
+
+        def keep_line(values: tuple[CoverageLine, CoverageLine]) -> bool:
+            old_line, new_line = values
+            if not old_line:
+                return True
+            return old_line.line_hit != new_line.line_hit
+
+        def new_value(values: tuple[CoverageLine]) -> str:
+            """ Asserts that lines have same bases, and retuns new_value. This assumes that lines are not equal"""
+            old_line, new_line = values
+
+            if old_line is not None:
+                assert old_line.base == new_line.base, "Cannot diff between different lines"
+            return new_line
+
+        def match_coverage_lines_by(first: list[str], second: list[str], prefix: str, key) ->dict[str, tuple[CoverageLine, CoverageLine]]:
+            source = match_second_prefix_entries_by(first, second, prefix, key)
+            return { key: (CoverageLine.instance_or_none(old), CoverageLine.instance_or_none(new)) for key, (old, new) in source.items()}
+
+        def generate_new_lines_from(first: 'Record', second: 'Record', prefix: str) -> list[str]:
+            if prefix not in other.lines_per_prefix:
+                return []
+            else:
+                return [ new_value(values)
+                         for _, values
+                         in match_coverage_lines_by(first, second, prefix, key=lambda x: x.split(",")[0]).items()
+                         if keep_line(values)
+                ]
+
+        other.lines_per_prefix["DA"] = generate_new_lines_from(self, other, "DA")
+        other.lines_per_prefix["BRDA"] = generate_new_lines_from(self, other, "BRDA")
+
+        return other
 
     def add(self, prefix: str, data: str):
         if prefix in self.stream.handlers:
@@ -176,6 +252,20 @@ class Stream:
         self.records: list[Record] = []
         self.test_name: str = None
         self.source_file_prefix = source_file_prefix
+
+    def diff(self, other_stream: 'Stream') -> 'Stream':
+        this_records, other_records = self.records, other_stream.records
+        paired_records = match_second_entries_by(this_records, other_records, key=lambda x: x.source_file)
+        diffed_records: list[Record] = []
+        for name, records in paired_records.items(): 
+            this, other = records
+            if this is not None:
+                diffed_records.append(this.diff(other))
+            elif other is not None:
+                diffed_records.append(other)
+                
+        other_stream.records = diffed_records
+        return other_stream
 
     def install_handler(self, prefixes: Iterable[str], handler: EntryHandler):
         for prefix in prefixes:
