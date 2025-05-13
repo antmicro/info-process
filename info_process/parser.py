@@ -126,7 +126,7 @@ class Record:
 
             if old_line is not None:
                 assert old_line.base == new_line.base, "Cannot diff between different lines"
-            return new_line
+            return str(new_line)
 
         def match_coverage_lines_by(first: list[str], second: list[str], prefix: str, key) ->dict[str, tuple[CoverageLine, CoverageLine]]:
             source = match_second_prefix_entries_by(first, second, prefix, key)
@@ -157,6 +157,10 @@ class Record:
                 self._add_entry(prefix, entry)
         else:
             self._add_entry(prefix, data)
+
+    def has_entries_for_line_number(self, line_number: str):
+        ret_val = any(line.startswith(f'{line_number},') for line in itertools.chain(*list(self.lines_per_prefix.values())))
+        return ret_val
 
     def has_entry_for_line(self, prefix: str, line: int) -> bool:
         assert type(line) is int
@@ -302,6 +306,12 @@ class Stream:
                 except RemoveRecord:
                     print('Removing records is not supported during merging')
                     raise
+
+    def has_entries_for_source_file_line(self, source_file_name: str, line_number: str) -> bool:
+        record = next((r for r in self.records if (r.source_file == source_file_name)), None)         
+        if record is None:
+            return False
+        return record.has_entries_for_line_number(line_number)
 
     def save(self, out: TextIO):
         out.write(str(self))
