@@ -69,6 +69,7 @@ class Record:
         self.lines_per_prefix: dict[str, list[str]] = {}
         self.line_info: dict[str, dict[int, LineInfo]] = {}
         self.prefix_order: list[str] = []
+        self.source_file_prefix = self.stream.source_file_prefix
 
     def add(self, prefix: str, data: str):
         if prefix in self.stream.handlers:
@@ -153,7 +154,7 @@ class Record:
         self._update_stats(prefix, data, None)
 
     def _update_stats(self, prefix: str, data: str, test_file: Optional[str]):
-        if self.source_file is None and prefix == 'SF':
+        if self.source_file is None and prefix == self.source_file_prefix:
             self.source_file = data
         elif prefix == 'BRDA' or prefix == 'DA':
             line_number, hit_count = get_line_number_and_hit_count(data)
@@ -168,12 +169,13 @@ class Record:
                 self.line_info[prefix][line_number].add_source(test_file)
 
 class Stream:
-    def __init__(self):
+    def __init__(self, source_file_prefix: str="SF"):
         self.handlers: dict[str, list[EntryHandler]] = {}
         self.category_handlers: dict[str, list[CategoryHandler]] = {}
         self.generic_category_handlers: list[CategoryHandler] = []
         self.records: list[Record] = []
         self.test_name: str = None
+        self.source_file_prefix = source_file_prefix
 
     def install_handler(self, prefixes: Iterable[str], handler: EntryHandler):
         for prefix in prefixes:
