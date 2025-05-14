@@ -66,10 +66,10 @@ def prepare_args(parser: argparse.ArgumentParser):
                         help='Add unchanged files to the report')
 
 def compare_records(this_records: list[Record], other_records: list[Record]) -> list[CoverageCompare]:
-    this_records_lines = { record.source_file: record.lines_per_prefix.get("DA", []) + record.lines_per_prefix.get("BRDA", [])
-        for record in this_records }
-    other_records_lines = { record.source_file: record.lines_per_prefix.get("DA", []) + record.lines_per_prefix.get("BRDA", [])
-        for record in other_records }
+    this_records_lines = { source_file: record.lines_per_prefix.get("DA", []) + record.lines_per_prefix.get("BRDA", [])
+        for source_file, record in this_records.items() }
+    other_records_lines = { source_file: record.lines_per_prefix.get("DA", []) + record.lines_per_prefix.get("BRDA", [])
+        for source_file, record in other_records.items() }
 
     assert len(set(this_records_lines.keys()) & set(other_records_lines.keys())) != 0, "Files need to have at least one common source file to be comparable"
 

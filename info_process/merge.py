@@ -91,7 +91,7 @@ def squash_misc(prefix: str, entries: list[str], record: Record) -> list[str]:
 
 def create_test_list(out: TextIO, stream: Stream):
     out.write('TN:test_coverage\n')
-    for record in stream.records:
+    for record in stream.records.values():
         merged: dict[int, set[str]] = {}
         for prefix in ['DA', 'BRDA']:
             if prefix not in record.line_info:

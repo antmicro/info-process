@@ -64,8 +64,10 @@ def get_line_number_and_hit_count(entry: str) -> tuple[int, int]:
 
 def match_second_entries_by(first, second):
     result_dict = {}
-    first_entries = {key(entry): entry for entry in first}
-    second_entries = {key(entry): entry for entry in second}
+    for name in second.keys():
+        result_dict[name] = (first.get(name, None), second.get(name))
+
+    return result_dict
 
 def match_second_prefix_entries_by(first: 'Record', second: 'Record', prefix: str, key) -> dict[str, tuple[str]]:
     if second is None or any([prefix not in x.lines_per_prefix for x in (first, second)]):
@@ -128,9 +130,9 @@ class Record:
                 assert old_line.base == new_line.base, "Cannot diff between different lines"
             return str(new_line)
 
-        def match_coverage_lines_by(first: list[str], second: list[str], prefix: str, key) ->dict[str, tuple[CoverageLine, CoverageLine]]:
+        def match_coverage_lines_by(first: 'Record', second: 'Record', prefix: str, key) -> dict[str, tuple[CoverageLine]]:
             source = match_second_prefix_entries_by(first, second, prefix, key)
-            return { key: (CoverageLine.instance_or_none(old), CoverageLine.instance_or_none(new)) for key, (old, new) in source.items()}
+            return { k: (CoverageLine.instance_or_none(old), CoverageLine.instance_or_none(new)) for k, (old, new) in source.items()}
 
         def generate_new_lines_from(first: 'Record', second: 'Record', prefix: str) -> list[str]:
             if prefix not in other.lines_per_prefix:
@@ -253,21 +255,21 @@ class Stream:
         self.handlers: dict[str, list[EntryHandler]] = {}
         self.category_handlers: dict[str, list[CategoryHandler]] = {}
         self.generic_category_handlers: list[CategoryHandler] = []
-        self.records: list[Record] = []
+        self.records: dict[str, Record] = {}
         self.test_name: str = None
         self.source_file_prefix = source_file_prefix
 
     def diff(self, other_stream: 'Stream') -> 'Stream':
         this_records, other_records = self.records, other_stream.records
-        paired_records = match_second_entries_by(this_records, other_records, key=lambda x: x.source_file)
-        diffed_records: list[Record] = []
-        for name, records in paired_records.items(): 
+        paired_records = match_second_entries_by(this_records, other_records)
+        diffed_records: dict[Record] = {}
+        for name, records in paired_records.items():
             this, other = records
             if this is not None:
-                diffed_records.append(this.diff(other))
+                diffed_records[name] = this.diff(other)
             elif other is not None:
-                diffed_records.append(other)
-                
+                diffed_records[name] = other
+
         other_stream.records = diffed_records
         return other_stream
 
@@ -293,7 +295,7 @@ class Stream:
             try:
                 for prefix, data in lines:
                     record.add(prefix, data)
-                self.records.append(record)
+                self.records[record.source_file] = record
             except RemoveRecord:
                 pass
 
@@ -308,7 +310,7 @@ class Stream:
                     raise
 
     def has_entries_for_source_file_line(self, source_file_name: str, line_number: str) -> bool:
-        record = next((r for r in self.records if (r.source_file == source_file_name)), None)         
+        record = self.records.get(source_file_name, None)
         if record is None:
             return False
         return record.has_entries_for_line_number(line_number)
@@ -354,9 +356,8 @@ class Stream:
 
     def _get_matching_record(self, record: Record) -> Record:
         assert record.source_file is not None, 'Record without a source file encountered'
-        for r in self.records:
-            if r.source_file == record.source_file:
-                r._merge_stats(record)
-                return r
-        self.records.append(record)
+        if rec:=self.records.get(record.source_file, None):
+            rec._merge_stats(record)
+            return rec
+        self.records[record.source_file] = record
         return record

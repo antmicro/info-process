@@ -20,8 +20,8 @@ def copy_file_between_zips(source: ZipFile, destination: ZipFile, file_name: str
     destination.writestr(file_name, unzip_to_stringio(source, file_name).getvalue())
 
 def drop_lines_not_in_other(this_stream: Stream, other_stream: Stream, this_prefix: str) -> Stream:
-    output_coverage_source_files = [x.source_file for x in other_stream.records]
-    for record in this_stream.records:
+    output_coverage_source_files = other_stream.records.keys()
+    for name, record in this_stream.records.items():
         if record.source_file not in output_coverage_source_files:
             this_stream.records.pop(name)
         elif this_prefix in record.lines_per_prefix:
