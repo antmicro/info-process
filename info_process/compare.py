@@ -71,7 +71,7 @@ def compare_records(this_records: list[Record], other_records: list[Record]) -> 
     other_records_lines = { record.source_file: record.lines_per_prefix.get("DA", []) + record.lines_per_prefix.get("BRDA", [])
         for record in other_records }
 
-    assert len(set(this_records_lines.keys()) & set(other_records_lines.keys())) != 0, "Files need to have at least one common source file to be comparable" 
+    assert len(set(this_records_lines.keys()) & set(other_records_lines.keys())) != 0, "Files need to have at least one common source file to be comparable"
 
     def all_and_covered_lines_count(dataset: list[str]) -> tuple[int, int]:
         def is_line_covered(line_entry) -> bool:
@@ -86,7 +86,7 @@ def compare_records(this_records: list[Record], other_records: list[Record]) -> 
         other_lines, other_covered_lines = all_and_covered_lines_count(other_lines)
         result.append(CoverageCompare(file_name, base_lines, other_lines, base_covered_lines, other_covered_lines))
 
-    return sorted(result)       
+    return sorted(result)
 
 def format_value(value, format: str, is_delta: bool = True) -> str:
     if value == 0 and not is_delta:
@@ -177,14 +177,14 @@ def unpack_existing_into_stream_pairs(path_this, path_other) -> dict[str, tuple[
     def unzip_to_stream(zip_file: ZipFile, name: str) -> Stream:
         stream = Stream()
         info_io = unzip_to_stringio(zip_file, name)
-        stream.load(info_io)        
+        stream.load(info_io)
         return stream
 
     stream_pairs = {}
 
     with ZipFile(path_this, 'r') as this_zip, ZipFile(path_other, 'r') as other_zip:
         this_datasets, other_datasets = get_datasets(this_zip), get_datasets(other_zip)
-        assert len(this_datasets & other_datasets) > 0,  "Archives need to have at least one common dataset file to be comparable" 
+        assert len(this_datasets & other_datasets) > 0,  "Archives need to have at least one common dataset file to be comparable"
 
         for common_file in this_datasets & other_datasets:
             stream_pairs[extract_file_name(common_file)] = (unzip_to_stream(this_zip, common_file), unzip_to_stream(other_zip, common_file))

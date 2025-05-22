@@ -149,7 +149,7 @@ def main(args: argparse.Namespace):
         # of parts of file names. It doesn't include the final '/' though so we need to add it.
         common_prefix = '' if args.test_list_full_path else os.path.commonpath(args.inputs) + '/'
 
-    print(f'Merging input files...')
+    print('Merging input files...')
     for path in sorted(args.inputs):
         print(path)
         test_name = None
