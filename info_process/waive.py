@@ -63,12 +63,17 @@ def create_waivers_handler(waivers: ExplicitWaivers):
 
 def prepare_args(parser: argparse.ArgumentParser):
     parser.add_argument('input', type=str,
-                        help='Input .info file to extract coverage types from')
-    parser.add_argument('--output', type=str, required=True,
-                        help="Output file's path")
-    parser.add_argument('--waivers', type=str, required=True, help="Waivers yaml")
+                        help='Input file in the .info format that should be processed')
+    parser.add_argument('--output', type=str,
+                        help="Optional output path to save the result to instead of the default which is modifying the input file in-place")
+    parser.add_argument('--waivers', type=str, required=True,
+                        help="Waivers in CSV format")
 
 def main(args: argparse.Namespace):
+    # Default to a in-place modification if no output path is specified
+    if args.output is None:
+        args.output = args.input
+
     stream = Stream()
 
     waivers = ExplicitWaivers(Path(args.waivers))
