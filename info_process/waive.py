@@ -29,14 +29,14 @@ class ExplicitWaivers:
         with open(path, newline='') as f:
             reader = csv.reader(f)
             for row in reader:
-                file = row[0] # path relative to some arbitrary directory, str.endswith is used to match the source filename with this path
+                file = row[0]
                 if file not in self.excluded:
                     self.excluded[file] = list()
                 self.excluded[file].append(ExplicitWaivers.Exclude(int(row[1]), int(row[2])))
 
     def is_excluded(self, file: str, line_number: int) -> bool:
         for path, blacklist in self.excluded.items():
-            if not file.endswith(path):
+            if not file == path:
                 # Exclusion list doesn't impact the file
                 continue
 
