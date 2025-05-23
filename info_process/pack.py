@@ -68,11 +68,8 @@ def generate_datasets(coverage_files: list[str], description_files: list[str]) -
 def get_coverage_files(config: CoverviewConfig, available_coverages: list[str], available_descriptions: list[str]) -> tuple[list[str]]:
     return zip(*get_coverage_description_paired_files(config, available_coverages, available_descriptions))
 
-def get_coverage_description_paired_files(config: CoverviewConfig, available_coverages: list[str], available_descriptions: list[str]) -> list[tuple[str]]:
-    coverage_description_pairs = []
-    available_coverages = [os.path.basename(p) for p in  available_coverages]
-    available_descriptions = [os.path.basename(p) for p in available_descriptions]
-    description_file_basename, coverage_file_basename = None, None
+def get_coverage_description_paired_files(config: CoverviewConfig, available_coverages: list[str], available_descriptions: list[str]) -> list[tuple[str, str]]:
+    coverage_description_pairs: list[tuple[str,str]] = []
 
     for dataset in config['datasets'].values():
         for file in dataset.values():
@@ -90,16 +87,24 @@ def get_coverage_description_paired_files(config: CoverviewConfig, available_cov
                 else:
                     print(f'ERROR: Invalid dataset files: {file}; only pairs of .info and .desc files are allowed')
 
-            if coverage_file_basename not in available_coverages:
+            for coverage_file in available_coverages:
+                if os.path.basename(coverage_file) == coverage_file_basename:
+                    found_coverage_file = coverage_file
+                    break
+            else:
                 print(f'ERROR: Coverage file not found: {coverage_file_basename}')
                 sys.exit(1)
 
             if description_file_basename is not None:
-                if description_file_basename not in available_descriptions:
+                for description_file in available_descriptions:
+                    if os.path.basename(description_file) == description_file_basename:
+                        found_description_file = description_file
+                        break
+                else:
                     print(f'ERROR: Description file not found: {description_file_basename}')
                     sys.exit(1)
 
-            coverage_description_pairs.append((coverage_file_basename, description_file_basename))
+            coverage_description_pairs.append((found_coverage_file, found_description_file))
 
     return coverage_description_pairs
 
