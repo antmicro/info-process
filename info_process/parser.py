@@ -51,6 +51,14 @@ def split_brda(entry: str) -> tuple[int, int, str, int]:
 
     return line_number, block, name, hit_count
 
+def split_test(entry: str) -> tuple[int, list[str]]:
+    line_number, tests = entry.split(',', 1)
+
+    line_number = int(line_number)
+    assert line_number >= 0
+
+    return line_number, tests.split(';')
+
 def get_line_number_and_hit_count(entry: str) -> tuple[int, int]:
     line_number, *_, hit_count = entry.split(',')
 

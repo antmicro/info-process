@@ -4,8 +4,9 @@
 from dataclasses import dataclass
 from pathlib import Path
 import argparse
-from .parser import Stream, Record, split_da, split_brda
+from .parser import Stream, Record, split_da, split_brda, split_test
 from . import handlers
+from typing import Optional
 import csv
 
 
@@ -46,7 +47,12 @@ class ExplicitWaivers:
                     group_end=get_or_default(row, 4, 5),
                 ))
 
-    def is_excluded(self, file: str, line_number: int, group_number: int=-1) -> bool:
+    # if group_number < 0, entry is considered excluded without checking if it is in an excluded group range
+    # (used for excluding entries that don't have any group information, e.g. `DA` entries)
+    # if full_line == True, entry is considered excluded only if there is a waiver excluding the entire line
+    # (used for DESC files, where `TEST` should not be removed when only some group ranges are removed
+    # to make ensure that test information is not discarded for remaining groups on this line)
+    def is_excluded(self, file: str, line_number: int, group_number: int=-1, full_line: bool=False) -> bool:
         for path, blacklist in self.excluded.items():
             if not file == path:
                 # Exclusion list doesn't impact the file
@@ -56,8 +62,11 @@ class ExplicitWaivers:
                 line_excluded = (entry.line_start == entry.line_end == self.LINE_NUMBER_WHOLE_FILE_MARKER) or \
                     (entry.line_start <= line_number <= entry.line_end)
 
-                group_excluded = group_number < 0 or (entry.group_start == entry.group_end == self.GROUP_WHOLE_LINE_MARKER) or \
-                    (entry.group_start <= group_number <= entry.group_end)
+                if full_line:
+                    group_excluded = (entry.group_start == entry.group_end == self.GROUP_WHOLE_LINE_MARKER)
+                else:
+                    group_excluded = group_number < 0 or (entry.group_start == entry.group_end == self.GROUP_WHOLE_LINE_MARKER) or \
+                        (entry.group_start <= group_number <= entry.group_end)
 
                 if line_excluded and group_excluded:
                     # Exclusion entry matched
@@ -80,6 +89,15 @@ def create_waivers_handler(waivers: ExplicitWaivers):
 
     return filter_waivers
 
+def create_desc_waivers_handler(waivers: ExplicitWaivers):
+    def handler(prefix: str, params: str, file: Record) -> Optional[str]:
+        line, _ = split_test(params)
+        if waivers.is_excluded(file.source_file, line, full_line=True):
+            return None
+        return params
+
+    return handler
+
 def prepare_args(parser: argparse.ArgumentParser):
     parser.add_argument('input', type=str,
                         help='Input file in the .info format that should be processed')
@@ -93,16 +111,18 @@ def main(args: argparse.Namespace):
     if args.output is None:
         args.output = args.input
 
-    stream = Stream()
-
     waivers = ExplicitWaivers(Path(args.waivers))
 
-    stream.install_category_handler(['BRDA', 'DA'], create_waivers_handler(waivers))
-
-    stream.install_category_handler(['BRF'], handlers.create_count_restore('BRDA'))
-    stream.install_category_handler(['BRH'], handlers.create_hit_count_restore('BRDA'))
-    stream.install_category_handler(['LF'], handlers.create_count_restore('DA'))
-    stream.install_category_handler(['LH'], handlers.create_hit_count_restore('DA'))
+    if args.input.endswith('.desc'):
+        stream = Stream(source_file_prefix='SN')
+        stream.install_handler(['TEST'], create_desc_waivers_handler(waivers))
+    else:
+        stream = Stream()
+        stream.install_category_handler(['BRDA', 'DA'], create_waivers_handler(waivers))
+        stream.install_category_handler(['BRF'], handlers.create_count_restore('BRDA'))
+        stream.install_category_handler(['BRH'], handlers.create_hit_count_restore('BRDA'))
+        stream.install_category_handler(['LF'], handlers.create_count_restore('DA'))
+        stream.install_category_handler(['LH'], handlers.create_hit_count_restore('DA'))
 
     with open(args.input, 'rt') as f:
         stream.load(f)
