@@ -46,7 +46,7 @@ def split_brda(entry: str) -> tuple[int, int, str, int]:
     block = int(block)
     assert block >= 0
 
-    hit_count = int(hit_count)
+    hit_count = 0 if hit_count == '-' else int(hit_count)
     assert hit_count >= 0
 
     return line_number, block, name, hit_count
@@ -65,7 +65,7 @@ def get_line_number_and_hit_count(entry: str) -> tuple[int, int]:
     line_number = int(line_number)
     assert line_number >= 0
 
-    hit_count = int(hit_count)
+    hit_count = 0 if hit_count == '-' else int(hit_count)
     assert hit_count >= 0
 
     return line_number, hit_count

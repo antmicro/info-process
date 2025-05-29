@@ -15,6 +15,7 @@ def create_hit_count_restore(prefix: str) -> CategoryHandler:
         if prefix in record.lines_per_prefix:
             for entry in record.lines_per_prefix[prefix]:
                 *_, hit_count = entry.rsplit(',', 1)
-                count += 1 if int(hit_count) > 0 else 0
+                hit_count = 0 if hit_count == '-' else int(hit_count)
+                count += 1 if hit_count > 0 else 0
         return [str(count)]
     return handler
