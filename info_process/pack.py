@@ -65,11 +65,12 @@ def generate_datasets(coverage_files: list[str], description_files: list[str]) -
     return final_datasets
 
 # Returns (coverage_files: list[str], description_files: list[str])
-def get_coverage_files(config: CoverviewConfig, available_coverages: list[str], available_descriptions: list[str]) -> tuple[list[str]]:
+def get_coverage_files(config: CoverviewConfig, available_coverages: list[str], available_descriptions: list[str]) -> tuple[tuple[str, ...], tuple[Optional[str], ...]]:
     return zip(*get_coverage_description_paired_files(config, available_coverages, available_descriptions))
 
-def get_coverage_description_paired_files(config: CoverviewConfig, available_coverages: list[str], available_descriptions: list[str]) -> list[tuple[str, str]]:
-    coverage_description_pairs: list[tuple[str,str]] = []
+def get_coverage_description_paired_files(config: CoverviewConfig, available_coverages: list[str], available_descriptions: list[str]) -> list[tuple[str, Optional[str]]]:
+    # Second parameter is optional as it is possible to pack an .info file without a corresponding .desc file
+    coverage_description_pairs: list[tuple[str, Optional[str]]] = []
 
     for dataset in config['datasets'].values():
         for file in dataset.values():
@@ -103,6 +104,8 @@ def get_coverage_description_paired_files(config: CoverviewConfig, available_cov
                 else:
                     print(f'ERROR: Description file not found: {description_file_basename}')
                     sys.exit(1)
+            else:
+                found_description_file = None
 
             coverage_description_pairs.append((found_coverage_file, found_description_file))
 
@@ -200,7 +203,7 @@ def main(args: argparse.Namespace):
     used_coverage, used_descriptions = get_coverage_files(config, args.coverage_files, args.description_files)
     sources = get_sources(used_coverage, args.sources_root)
 
-    all_files = itertools.chain(used_coverage, used_descriptions, args.extra_files)
+    all_files = (f for f in itertools.chain(used_coverage, used_descriptions, args.extra_files) if f is not None)
     if args.output.lower().endswith('.zip'):
         print(f'Creating an output .zip archive: {args.output}')
         pack_zip(args.output, config, sources, all_files)
