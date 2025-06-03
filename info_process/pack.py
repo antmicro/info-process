@@ -137,7 +137,7 @@ def get_sources(coverage_files: list[str], root: Optional[str]) -> str:
 
     return ''.join(sources)
 
-def pack_zip(output: str, config: CoverviewConfig, sources: str, files_to_pack: Iterable[str]):
+def pack_zip(output: str, config: CoverviewConfig, sources: Optional[str], files_to_pack: Iterable[str]):
     # Remove previous archive, if it exists to not mixup any files
     if os.path.isfile(output):
         print(f'Removing previous output archive: {output}')
@@ -147,14 +147,15 @@ def pack_zip(output: str, config: CoverviewConfig, sources: str, files_to_pack: 
         # Write the config
         archive.writestr('config.json', json.dumps(config, indent=2))
 
-        # Write combined sources
-        archive.writestr('sources.txt', sources)
+        # Write combined sources if provided
+        if sources is not None:
+            archive.writestr('sources.txt', sources)
 
         # Copy all files (coverage, description and extra files)
         for file in files_to_pack:
             archive.write(file, os.path.basename(file))
 
-def pack_directory(output: str, config: CoverviewConfig, sources: str, files_to_pack: Iterable[str]):
+def pack_directory(output: str, config: CoverviewConfig, sources: Optional[str], files_to_pack: Iterable[str]):
     # Remove the previous directory, if it exists to not mixup any files
     if os.path.isdir(output):
         print(f'Removing previous output directory: {output}')
@@ -165,10 +166,11 @@ def pack_directory(output: str, config: CoverviewConfig, sources: str, files_to_
     with open(os.path.join(output, 'config.json'), 'wt') as file:
         file.write(json.dumps(config, indent=2))
 
-    # Write combined sources
+    # Write combined sources if provided
     # File is opened as binary to prevent Python from modifying line end characters
-    with open(os.path.join(output, 'sources.txt'), 'wb') as file:
-        file.write(sources.encode('utf-8'))
+    if sources is not None:
+        with open(os.path.join(output, 'sources.txt'), 'wb') as file:
+            file.write(sources.encode('utf-8'))
 
     # Copy all files (coverage, description and extra files)
     for file in files_to_pack:
@@ -185,6 +187,8 @@ def prepare_args(parser: argparse.ArgumentParser):
                         help='Paths to .desc files to be included in the archive')
     parser.add_argument('--sources-root', type=str,
                         help='Optional root directory where files from SF entries can be found; default: current directory')
+    parser.add_argument('--no-sources', default=False, action='store_true',
+                        help='Do not pack source files into the resulting archive')
     parser.add_argument('--extra-files', nargs='+', action='extend', default=[],
                         help='Additional files to be included in the archive with "datasets" property being optional; ' +
                         'if missing, "datasets" will be generated based on "coverage_{TYPE}_{DATASET}.info" and "tests_{TYPE}_{DATASET}.desc" names ' +
@@ -201,7 +205,7 @@ def main(args: argparse.Namespace):
         print(f'Using "datasets" property from {args.config}')
 
     used_coverage, used_descriptions = get_coverage_files(config, args.coverage_files, args.description_files)
-    sources = get_sources(used_coverage, args.sources_root)
+    sources = None if args.no_sources else get_sources(used_coverage, args.sources_root)
 
     all_files = (f for f in itertools.chain(used_coverage, used_descriptions, args.extra_files) if f is not None)
     if args.output.lower().endswith('.zip'):
