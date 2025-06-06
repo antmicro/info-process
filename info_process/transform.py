@@ -85,11 +85,11 @@ def prepare_args(parser: argparse.ArgumentParser):
     parser.add_argument('--add-missing-brda-entries', action='store_true', default=False,
                         help='Generate BRDA entries for lines which only have DA entries. ' +
                         'Can be combined with --add-two-way-toggles to get separate entries for each added toggle')
-    parser.add_argument('--filter', type=str,
+    parser.add_argument('--filter', type=str, nargs=1, action='extend', default=[],
                         help='Only keep entries for files matching the provided regular expression')
-    parser.add_argument('--filter-out', type=str,
+    parser.add_argument('--filter-out', type=str, nargs=1, action='extend', default=[],
                         help='Only keep entries for files not matching the provided regular expression. Evaluated after --filter')
-    parser.add_argument('--strip-file-prefix', type=str,
+    parser.add_argument('--strip-file-prefix', type=str, nargs=1, action='extend', default=[],
                         help='Remove the provided pattern from file paths in SF entries')
     parser.add_argument('--normalize-hit-counts', action='store_true', default=False,
                         help='Replace hit counts greater than 1 in BRDA and DA entries with 1')
@@ -105,14 +105,14 @@ def main(args: argparse.Namespace):
 
     stream = Stream()
 
-    if args.strip_file_prefix is not None:
-        stream.install_handler(['SF'], create_path_strip_handler(args.strip_file_prefix))
+    for prefix in args.strip_file_prefix:
+        stream.install_handler(['SF'], create_path_strip_handler(prefix))
 
-    if args.filter is not None:
-        stream.install_handler(['SF'], create_filter_handler(args.filter))
+    for filter in args.filter:
+        stream.install_handler(['SF'], create_filter_handler(filter))
 
-    if args.filter_out is not None:
-        stream.install_handler(['SF'], create_filter_handler(args.filter_out, negate=True))
+    for filter_out in args.filter_out:
+        stream.install_handler(['SF'], create_filter_handler(filter_out, negate=True))
 
     if args.set_block_ids:
         stream.install_category_handler(['BRDA'], create_block_ids_handler(args.set_block_ids_step))
