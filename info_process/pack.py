@@ -176,7 +176,7 @@ def prepare_args(parser: argparse.ArgumentParser):
                         help="Output archive's path")
     parser.add_argument('--config', required=True, type=str,
                         help="Path to coverview's .json configuration file")
-    parser.add_argument('--coverage-files', nargs='+', action='extend', default=[],
+    parser.add_argument('--coverage-files', nargs='+', action='extend', default=[], required=True,
                         help='Paths to coverage .info files to be included in the archive')
     parser.add_argument('--description-files', nargs='+', action='extend', default=[],
                         help='Paths to .desc files to be included in the archive')
