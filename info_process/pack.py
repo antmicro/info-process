@@ -176,13 +176,13 @@ def prepare_args(parser: argparse.ArgumentParser):
                         help="Output archive's path")
     parser.add_argument('--config', required=True, type=str,
                         help="Path to coverview's .json configuration file")
-    parser.add_argument('--coverage-files', nargs='*', default=[],
+    parser.add_argument('--coverage-files', nargs='+', action='extend', default=[],
                         help='Paths to coverage .info files to be included in the archive')
-    parser.add_argument('--description-files', nargs='*', default=[],
+    parser.add_argument('--description-files', nargs='+', action='extend', default=[],
                         help='Paths to .desc files to be included in the archive')
     parser.add_argument('--sources-root', type=str,
                         help='Optional root directory where files from SF entries can be found; default: current directory')
-    parser.add_argument('--extra-files', nargs='*', default=[],
+    parser.add_argument('--extra-files', nargs='+', action='extend', default=[],
                         help='Additional files to be included in the archive with "datasets" property being optional; ' +
                         'if missing, "datasets" will be generated based on "coverage_{TYPE}_{DATASET}.info" and "tests_{TYPE}_{DATASET}.desc" names ' +
                         'from files provided in --coverage-files and --description-files')
