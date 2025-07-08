@@ -19,40 +19,40 @@ NO_FORMATTING=""
 
 @dataclass
 class CoverageCompare:
-    """ Represents difference between two coverage files """
+    """ Represents difference between two coverage files for one metric (line/branch/...) """
     file_name: str
-    base_lines: int
-    other_lines: int
-    base_covered_lines: int
-    other_covered_lines: int
+    base_total: int
+    other_total: int
+    base_hits: int
+    other_hits: int
 
     def __lt__(self, other) -> bool:
         return self.file_name < other.file_name
 
     def __add__(self, other) -> 'CoverageCompare':
         return CoverageCompare("",
-                               (self.base_lines + other.base_lines),
-                               (self.other_lines + other.other_lines),
-                               (self.base_covered_lines + other.base_covered_lines),
-                               (self.other_covered_lines + other.other_covered_lines))
+                               (self.base_total + other.base_total),
+                               (self.other_total + other.other_total),
+                               (self.base_hits + other.base_hits),
+                               (self.other_hits + other.other_hits))
 
-    def lines_delta(self) -> int:
-        return self.other_lines - self.base_lines
+    def total_delta(self) -> int:
+        return self.other_total - self.base_total
 
-    def covered_lines_delta(self) -> int:
-        return self.other_covered_lines - self.base_covered_lines
+    def hits_delta(self) -> int:
+        return self.other_hits - self.base_hits
 
     def base_coverage(self) -> float:
-        return self.base_covered_lines/self.base_lines * 100 if self.base_lines > 0 else 0
+        return self.base_hits/self.base_total * 100 if self.base_total > 0 else 0
 
     def other_coverage(self) -> float:
-        return self.other_covered_lines/self.other_lines * 100 if self.other_lines > 0 else 0
+        return self.other_hits/self.other_total * 100 if self.other_total > 0 else 0
 
     def coverage_delta(self) -> float:
         return self.other_coverage() - self.base_coverage()
 
     def is_different(self) -> bool:
-        return (self.lines_delta() != 0 or self.covered_lines_delta() != 0)
+        return (self.total_delta() != 0 or self.hits_delta() != 0)
 
 
 def prepare_args(parser: argparse.ArgumentParser):
@@ -86,9 +86,9 @@ def compare_records(this_records: list[Record], other_records: list[Record]) -> 
     # We can discard all files that are present only in the `this_records` - files that have no lines now, have also no coverage
     for file_name, other_lines in other_records_lines.items():
         this_lines, other_lines = this_records_lines.get(file_name, None), other_records_lines[file_name]
-        base_lines, base_covered_lines = all_and_covered_lines_count(this_lines) if this_lines else (0,0)
-        other_lines, other_covered_lines = all_and_covered_lines_count(other_lines)
-        result.append(CoverageCompare(file_name, base_lines, other_lines, base_covered_lines, other_covered_lines))
+        base_total, base_hits = all_and_covered_lines_count(this_lines) if this_lines else (0,0)
+        other_total, other_hits = all_and_covered_lines_count(other_lines)
+        result.append(CoverageCompare(file_name, base_total, other_total, base_hits, other_hits))
 
     return sorted(result)
 
@@ -111,10 +111,10 @@ def prepare_table_data(name: str, comparison: CoverageCompare) -> list[str]:
     return [
         name,
         format_value(comparison.other_coverage(), format="{:.2f}%", is_delta=False),
-        str(comparison.other_covered_lines)
-        + format_value(comparison.covered_lines_delta(), format="[{}]"),
-        str(comparison.other_lines)
-        + format_value(comparison.lines_delta(), format="[{}]"),
+        str(comparison.other_hits)
+        + format_value(comparison.hits_delta(), format="[{}]"),
+        str(comparison.other_total)
+        + format_value(comparison.total_delta(), format="[{}]"),
         format_value(comparison.coverage_delta(), format="{:.2f}%"),
     ]
 
