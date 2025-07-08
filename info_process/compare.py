@@ -223,7 +223,11 @@ def main(args: argparse.Namespace):
 
     if args.colour:
         from colorama import init, Fore, Style
-        init()
+
+        # `strip=False` preserves color even when the output is piped.
+        # Stripping doesn't make sense since color is optional.
+        init(strip=False)
+
         global GREEN_FORMATTING
         global NO_FORMATTING
         global RED_FORMATTING
