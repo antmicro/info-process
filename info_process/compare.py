@@ -85,7 +85,7 @@ def compare_records(this_records: list[Record], other_records: list[Record]) -> 
     result = []
     # We can discard all files that are present only in the `this_records` - files that have no lines now, have also no coverage
     for file_name, other_lines in other_records_lines.items():
-        this_lines, other_lines = this_records_lines.get(file_name, None), other_records_lines[file_name]
+        this_lines = this_records_lines.get(file_name, None)
         base_total, base_hits = all_and_covered_lines_count(this_lines) if this_lines else (0,0)
         other_total, other_hits = all_and_covered_lines_count(other_lines)
         result.append(CoverageCompare(file_name, base_total, other_total, base_hits, other_hits))
