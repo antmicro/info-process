@@ -66,7 +66,7 @@ def prepare_args(parser: argparse.ArgumentParser):
                         help='.info files to be compared')
     parser.add_argument('--table', action='store_true',
                         help='Use table in report')
-    parser.add_argument('--colour', action='store_true',
+    parser.add_argument('--colour', '--color', action='store_true',
                         help='Use colours in report')
     parser.add_argument('--output-all', action='store_true',
                         help='Add unchanged files to the report')
