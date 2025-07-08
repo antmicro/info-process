@@ -129,10 +129,39 @@ def prepare_args(parser: argparse.ArgumentParser):
                         help='Output only summary table')
 
 def compare_records(this_records: dict[str, Record], other_records: dict[str, Record]) -> list[CoverageCompare]:
-    this_records_lines = { source_file: record.lines_per_prefix.get("DA", []) + record.lines_per_prefix.get("BRDA", [])
-        for source_file, record in this_records.items() }
-    other_records_lines = { source_file: record.lines_per_prefix.get("DA", []) + record.lines_per_prefix.get("BRDA", [])
-        for source_file, record in other_records.items() }
+    # Complexity here is caused by line coverage for which "normal" lines only have DA entries
+    # but, e.g., lines inside FOR loops have BRDA entries which should be counted instead.
+    #
+    # Therefore the returned dict contains BRDA entries unless there is a DA entry
+    # for a line without BRDA entries.
+    def get_entries_per_record(records: dict[str, Record]) -> dict[str, list[str]]:
+        result = {}
+        for source_file, record in records.items():
+            assert source_file not in result, f"Source file duplicated: {source_file}"
+            result[source_file] = {}
+
+            entries = record.lines_per_prefix.get('BRDA', [])
+            lines_with_brda_entries = set(
+                map(lambda brda: int(brda.split(',')[0]), entries)
+            )
+
+            lines_with_da_entries: set[int] = set()
+            for da_entry in record.lines_per_prefix.get('DA', []):
+                line_no = int(da_entry.split(',')[0])
+                # DA entries are only added for lines without any BRDA entries.
+                if line_no not in lines_with_brda_entries:
+                    # It is assumed that there's only one DA entry per line so let's
+                    # make sure it's true.
+                    assert line_no not in lines_with_da_entries, \
+                            f"Multiple DA lines for {line_no} line in {source_file}"
+                    lines_with_da_entries.add(line_no)
+
+                    entries.append(da_entry)
+            result[source_file] = entries
+        return result
+
+    this_records_lines = get_entries_per_record(this_records)
+    other_records_lines = get_entries_per_record(other_records)
 
     assert len(set(this_records_lines.keys()) & set(other_records_lines.keys())) != 0, "\n".join([
         "Files need to have at least one common source file to be comparable",
