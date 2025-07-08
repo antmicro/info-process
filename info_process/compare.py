@@ -36,23 +36,29 @@ class CoverageCompare:
                                (self.base_hits + other.base_hits),
                                (self.other_hits + other.other_hits))
 
+    @property
     def total_delta(self) -> int:
         return self.other_total - self.base_total
 
+    @property
     def hits_delta(self) -> int:
         return self.other_hits - self.base_hits
 
+    @property
     def base_coverage(self) -> float:
         return self.base_hits/self.base_total * 100 if self.base_total > 0 else 0
 
+    @property
     def other_coverage(self) -> float:
         return self.other_hits/self.other_total * 100 if self.other_total > 0 else 0
 
+    @property
     def coverage_delta(self) -> float:
-        return self.other_coverage() - self.base_coverage()
+        return self.other_coverage - self.base_coverage
 
+    @property
     def is_different(self) -> bool:
-        return (self.total_delta() != 0 or self.hits_delta() != 0)
+        return (self.total_delta != 0 or self.hits_delta != 0)
 
 
 def prepare_args(parser: argparse.ArgumentParser):
@@ -110,12 +116,12 @@ def format_value(value, format: str, is_delta: bool = True) -> str:
 def prepare_table_data(name: str, comparison: CoverageCompare) -> list[str]:
     return [
         name,
-        format_value(comparison.other_coverage(), format="{:.2f}%", is_delta=False),
+        format_value(comparison.other_coverage, format="{:.2f}%", is_delta=False),
         str(comparison.other_hits)
-        + format_value(comparison.hits_delta(), format="[{}]"),
+        + format_value(comparison.hits_delta, format="[{}]"),
         str(comparison.other_total)
-        + format_value(comparison.total_delta(), format="[{}]"),
-        format_value(comparison.coverage_delta(), format="{:.2f}%"),
+        + format_value(comparison.total_delta, format="[{}]"),
+        format_value(comparison.coverage_delta, format="{:.2f}%"),
     ]
 
 def print_summary(table: bool, markdown: bool, headers: list[str], data: list[list[str]]):
@@ -132,7 +138,7 @@ def report_changes(use_table: bool, use_markdown: bool, name: str, stream_this: 
     headers = ["File Name", "Coverage %", "Hit[Δ]", "Total[Δ]", "Coverage Δ %"]
     comparison_data = compare_records(stream_this.records, stream_other.records)
     if not print_all_data:
-        comparison_data =  [x for x in comparison_data if x.is_different()]
+        comparison_data =  [x for x in comparison_data if x.is_different]
     data = [
         prepare_table_data(comparison.file_name, comparison)
         for comparison in comparison_data
