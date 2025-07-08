@@ -26,10 +26,10 @@ class CoverageCompare:
     base_hits: int
     other_hits: int
 
-    def __lt__(self, other) -> bool:
+    def __lt__(self, other: 'CoverageCompare') -> bool:
         return self.file_name < other.file_name
 
-    def __add__(self, other) -> 'CoverageCompare':
+    def __add__(self, other: 'CoverageCompare') -> 'CoverageCompare':
         return CoverageCompare("",
                                (self.base_total + other.base_total),
                                (self.other_total + other.other_total),
@@ -69,7 +69,7 @@ def prepare_args(parser: argparse.ArgumentParser):
     parser.add_argument('--only-summary', action='store_true',
                         help='Output only summary table')
 
-def compare_records(this_records: list[Record], other_records: list[Record]) -> list[CoverageCompare]:
+def compare_records(this_records: dict[str, Record], other_records: dict[str, Record]) -> list[CoverageCompare]:
     this_records_lines = { source_file: record.lines_per_prefix.get("DA", []) + record.lines_per_prefix.get("BRDA", [])
         for source_file, record in this_records.items() }
     other_records_lines = { source_file: record.lines_per_prefix.get("DA", []) + record.lines_per_prefix.get("BRDA", [])
@@ -118,7 +118,7 @@ def prepare_table_data(name: str, comparison: CoverageCompare) -> list[str]:
         format_value(comparison.coverage_delta(), format="{:.2f}%"),
     ]
 
-def print_summary(table: bool, markdown: bool, headers, data):
+def print_summary(table: bool, markdown: bool, headers: list[str], data: list[list[str]]):
     if table:
         fmt = "github" if markdown else "rounded_grid"
         print(tabulate(data, headers=headers, tablefmt=fmt))
