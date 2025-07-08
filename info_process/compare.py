@@ -98,30 +98,23 @@ def compare_records(this_records: dict[str, Record], other_records: dict[str, Re
 
     return sorted(result)
 
-def format_value(value, format: str, is_delta: bool = True) -> str:
-    if value == 0 and not is_delta:
+def format_delta(value, percentage: bool = False) -> str:
+    if value == 0:
         return "--"
-    prefix_string = (
-        (
-            f"{GREEN_FORMATTING}+"
-            if value > 0
-            else f"{RED_FORMATTING}" if value < 0 else ""
-        )
-        if is_delta
-        else ""
-    )
 
-    return prefix_string + format.format(value) + f"{NO_FORMATTING}"
+    # NOTE: Plus is added for positive delta, minus for negative is in value already.
+    prefix_string = f"{GREEN_FORMATTING}+" if value > 0 else RED_FORMATTING
+    value_string = f"{value:.2f}%" if percentage else str(value)
+
+    return f"{prefix_string}{value_string}{NO_FORMATTING}"
 
 def prepare_table_data(name: str, comparison: CoverageCompare) -> list[str]:
     return [
         name,
-        format_value(comparison.other_coverage, format="{:.2f}%", is_delta=False),
-        str(comparison.other_hits)
-        + format_value(comparison.hits_delta, format="[{}]"),
-        str(comparison.other_total)
-        + format_value(comparison.total_delta, format="[{}]"),
-        format_value(comparison.coverage_delta, format="{:.2f}%"),
+        f"{comparison.other_coverage:.2f}%",
+        f"{comparison.other_hits} [{format_delta(comparison.hits_delta)}]",
+        f"{comparison.other_total} [{format_delta(comparison.total_delta)}]",
+        f"{format_delta(comparison.coverage_delta, percentage=True)}",
     ]
 
 def print_summary(table: bool, markdown: bool, headers: list[str], data: list[list[str]]):
