@@ -183,11 +183,13 @@ def print_summary(table: bool, markdown: bool, headers: list[str], data: list[li
 def report_changes(use_table: bool, use_markdown: bool, name: str, stream_this: Stream, stream_other: Stream, print_all_data: bool):
     headers = ["File Name", "Coverage %", "Hit[Δ]", "Total[Δ]", "Coverage Δ %"]
     comparison_data = compare_records(stream_this.records, stream_other.records)
-    if not print_all_data:
-        comparison_data =  [x for x in comparison_data if x.is_different]
+
+    def should_be_printed(comparison: CoverageCompare) -> bool:
+        return print_all_data or comparison.is_different
+
     data = [
         prepare_table_data(comparison.file_name, comparison)
-        for comparison in comparison_data
+        for comparison in comparison_data if should_be_printed(comparison)
     ]
 
     if len(data) == 0:
