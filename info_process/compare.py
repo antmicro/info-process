@@ -5,6 +5,7 @@ import argparse
 import os.path
 import io
 import json
+from typing import Optional
 from .pack import get_coverage_description_paired_files
 from .parser import Stream, Record
 from dataclasses import dataclass
@@ -21,43 +22,95 @@ NO_FORMATTING=""
 class CoverageCompare:
     """ Represents difference between two coverage files for one metric (line/branch/...) """
     file_name: str
-    base_total: int
-    other_total: int
-    base_hits: int
-    other_hits: int
+
+    # `base` or `other` pair can be None if source file is present only in one file.
+    base_total: Optional[int]
+    other_total: Optional[int]
+    base_hits: Optional[int]
+    other_hits: Optional[int]
 
     def __lt__(self, other: 'CoverageCompare') -> bool:
         return self.file_name < other.file_name
 
     def __add__(self, other: 'CoverageCompare') -> 'CoverageCompare':
+        def _add(a: Optional[int], b: Optional[int]) -> Optional[int]:
+            if a is None and b is None:
+                return None
+            else:
+                return (a or 0) + (b or 0)
+
         return CoverageCompare("",
-                               (self.base_total + other.base_total),
-                               (self.other_total + other.other_total),
-                               (self.base_hits + other.base_hits),
-                               (self.other_hits + other.other_hits))
+                               _add(self.base_total, other.base_total),
+                               _add(self.other_total, other.other_total),
+                               _add(self.base_hits, other.base_hits),
+                               _add(self.other_hits, other.other_hits))
+
+    def _assert_hits(self):
+        assert self.base_hits is not None or self.other_hits is not None, \
+            f"Both base_hits and other_hits can't be None, {self.file_name=}"
+
+    def _assert_total(self):
+        assert self.base_total is not None or self.other_total is not None, \
+            f"Both base_total and other_total can't be None, {self.file_name=}"
 
     @property
-    def total_delta(self) -> int:
+    def total_delta(self) -> Optional[int]:
+        if self.base_total is None or self.other_total is None:
+            self._assert_total()
+            return None
         return self.other_total - self.base_total
 
     @property
-    def hits_delta(self) -> int:
+    def hits_delta(self) -> Optional[int]:
+        if self.base_hits is None or self.other_hits is None:
+            self._assert_hits()
+            return None
         return self.other_hits - self.base_hits
 
     @property
-    def base_coverage(self) -> float:
-        return self.base_hits/self.base_total * 100 if self.base_total > 0 else 0
+    def base_coverage(self) -> Optional[float]:
+        if not self.present_in_base:
+            return None
+        return self.base_hits / self.base_total * 100 if self.base_total > 0 else 0
 
     @property
-    def other_coverage(self) -> float:
-        return self.other_hits/self.other_total * 100 if self.other_total > 0 else 0
+    def other_coverage(self) -> Optional[float]:
+        if not self.present_in_other:
+            return None
+        return self.other_hits / self.other_total * 100 if self.other_total > 0 else 0
 
     @property
-    def coverage_delta(self) -> float:
+    def coverage_delta(self) -> Optional[float]:
+        if self.other_coverage is None or self.base_coverage is None:
+            return None
         return self.other_coverage - self.base_coverage
 
     @property
+    def present_in_base(self) -> bool:
+        if self.base_total is None or self.base_hits is None:
+            assert self.base_total is None and self.base_hits is None, \
+                f"Either both or none of {self.base_total=} and {self.base_hits=} must be set, {self.file_name=}"
+            return False
+        else:
+            return True
+
+    @property
+    def present_in_other(self) -> bool:
+        if self.other_total is None or self.other_hits is None:
+            assert self.other_total is None and self.other_hits is None, \
+                f"Either both or none of {self.other_total=} and {self.other_hits=} must be set, {self.file_name=}"
+            return False
+        else:
+            return True
+
+    @property
+    def present_in_both(self) -> bool:
+        return self.present_in_base and self.present_in_other
+
+    @property
     def is_different(self) -> bool:
+        assert self.present_in_both, \
+            f"CoverageCompare with only base or other can't provide is_different, {self.file_name=}"
         return (self.total_delta != 0 or self.hits_delta != 0)
 
 
