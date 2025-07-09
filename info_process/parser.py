@@ -261,13 +261,14 @@ class Record:
                 self.line_info[prefix][line_number].add_source(test_file)
 
 class Stream:
-    def __init__(self, source_file_prefix: str="SF"):
+    def __init__(self, source_file_prefix: str = "SF", path: Optional[str] = None):
         self.handlers: dict[str, list[EntryHandler]] = {}
         self.category_handlers: dict[str, list[CategoryHandler]] = {}
         self.generic_category_handlers: list[CategoryHandler] = []
         self.records: dict[str, Record] = {}
-        self.test_name: str = None
+        self.test_name: Optional[str] = None
         self.source_file_prefix = source_file_prefix
+        self.path = path
 
     def diff(self, other_stream: 'Stream') -> 'Stream':
         this_records, other_records = self.records, other_stream.records
