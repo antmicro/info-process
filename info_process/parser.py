@@ -232,7 +232,7 @@ class Record:
             result = transformed
         return result
 
-    def _add_entry(self, prefix: str, data: str):
+    def _ensure_prefix(self, prefix: str):
         if prefix not in self.lines_per_prefix:
             # Order the sections in the same way as in the original file.
             # This is to an attempt to produce the smallest possible diff
@@ -240,6 +240,8 @@ class Record:
             self.prefix_order.append(prefix)
             self.lines_per_prefix[prefix] = []
 
+    def _add_entry(self, prefix: str, data: str):
+        self._ensure_prefix(prefix)
         self.lines_per_prefix[prefix].append(data)
         self._update_stats(prefix, data, None)
 
@@ -299,13 +301,26 @@ class Stream:
         self.generic_category_handlers.append(handler)
 
     def load(self, stream: TextIO):
+        # Use a list to store all records here as it is likely that some of them will have
+        # duplicated source files (e.g. due to prefix stripping)
+        record_list: list[Record] = []
         for record, lines in self._get_record_lines(stream, None):
             try:
                 for prefix, data in lines:
                     record.add(prefix, data)
-                self.records[record.source_file] = record
+                record_list.append(record)
             except RemoveRecord:
                 pass
+
+        # Convert the list to the record dict, by concatenating lines for
+        # records with a matching source file
+        for record in record_list:
+            if duplicate := self.records.get(record.source_file):
+                for prefix, lines in record.lines_per_prefix.items():
+                    duplicate._ensure_prefix(prefix)
+                    duplicate.lines_per_prefix[prefix].extend(lines)
+            else:
+                self.records[record.source_file] = record
 
     def merge(self, stream: TextIO, test_file_path: str):
         for record, lines in self._get_record_lines(stream, test_file_path):
