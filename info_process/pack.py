@@ -49,7 +49,7 @@ def generate_datasets(coverage_files: list[str], description_files: list[str]) -
     # Convert the collected dataset to a dataset that is sorted in the correct order
     # Note that this relies on the fact that converting a dict to a JSON string puts keys in
     # the same order that keys where added into the dict
-    key_order = ['line', 'branch', 'cond', 'toggle']
+    key_order = ['line', 'branch', 'cond', 'toggle', 'assert', 'fsm', 'functional']
     final_datasets = Datasets()
     for dataset in working_datasets:
         # Prepare keys, so that they are processed in order `line`, `branch`, `toggle`, everything else lexicographically
