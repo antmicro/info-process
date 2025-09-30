@@ -16,6 +16,7 @@ Datasets = dict[str, dict[str, Union[str, list[str]]]]
 
 class CoverviewConfig(TypedDict):
     datasets: Datasets
+    table_coverage: Optional[str]
 
 def generate_datasets(coverage_files: list[str], description_files: list[str]) -> Datasets:
     info_pattern = re.compile(r'coverage_(?P<coverage_type>\w+)_(?P<dataset>\w+).info')
@@ -193,6 +194,8 @@ def prepare_args(parser: argparse.ArgumentParser):
                         help='Additional files to be included in the archive with "datasets" property being optional; ' +
                         'if missing, "datasets" will be generated based on "coverage_{TYPE}_{DATASET}.info" and "tests_{TYPE}_{DATASET}.desc" names ' +
                         'from files provided in --coverage-files and --description-files')
+    parser.add_argument('--generate-tables', type=str, default=None,
+                        help='Coverage type, for which tables should be generated in the Coverview dashboard')
 
 def main(args: argparse.Namespace):
     with open(args.config, 'rt') as f:
@@ -203,6 +206,9 @@ def main(args: argparse.Namespace):
         config['datasets'] = generate_datasets(args.coverage_files, args.description_files)
     else:
         print(f'Using "datasets" property from {args.config}')
+
+    if args.generate_tables is not None:
+        config['table_coverage'] = args.generate_tables
 
     used_coverage, used_descriptions = get_coverage_files(config, args.coverage_files, args.description_files)
     sources = None if args.no_sources else get_sources(used_coverage, args.sources_root)
