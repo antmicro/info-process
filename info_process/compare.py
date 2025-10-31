@@ -134,7 +134,12 @@ def compare_records(this_records: dict[str, Record], other_records: dict[str, Re
     other_records_lines = { source_file: record.lines_per_prefix.get("DA", []) + record.lines_per_prefix.get("BRDA", [])
         for source_file, record in other_records.items() }
 
-    assert len(set(this_records_lines.keys()) & set(other_records_lines.keys())) != 0, "Files need to have at least one common source file to be comparable"
+    assert len(set(this_records_lines.keys()) & set(other_records_lines.keys())) != 0, "\n".join([
+        "Files need to have at least one common source file to be comparable",
+        f"    this={this_records_lines.keys()}",
+        f"    other={other_records_lines.keys()}",
+    ])
+
 
     def all_and_covered_lines_count(dataset: list[str]) -> tuple[int, int]:
         def is_line_covered(line_entry) -> bool:
@@ -253,7 +258,11 @@ def unpack_existing_into_stream_pairs(path_this, path_other) -> dict[str, tuple[
     with ZipFile(path_this, 'r') as this_zip, ZipFile(path_other, 'r') as other_zip:
         this_datasets, _ = get_coverages_and_descriptions_sets(this_zip)
         other_datasets, _ = get_coverages_and_descriptions_sets(other_zip)
-        assert len(this_datasets & other_datasets) > 0,  "Archives need to have at least one common dataset file to be comparable"
+        assert len(this_datasets & other_datasets) > 0, "\n".join([
+            "Archives need to have at least one common dataset file to be comparable",
+            f"    {this_datasets=}",
+            f"    {other_datasets=}",
+        ])
 
         for common_file in this_datasets & other_datasets:
             stream_pairs[extract_file_name(common_file)] = (unzip_to_stream(this_zip, common_file), unzip_to_stream(other_zip, common_file))
