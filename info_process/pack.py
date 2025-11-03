@@ -18,22 +18,28 @@ class CoverviewConfig(TypedDict):
     datasets: Datasets
     table_coverage: Optional[str]
 
+INFO_PATTERN = re.compile(r'coverage_(?P<coverage_type>\w+)_(?P<dataset>\w+).info')
+
+# Returns (coverage_type: str, dataset: str) | None
+def extract_type_and_dataset(path: str) -> Optional[tuple[str, str]]:
+    name = os.path.basename(path)
+    if m := INFO_PATTERN.match(name):
+        return (m.group('coverage_type'), m.group('dataset'))
+    return None
+
 def generate_datasets(coverage_files: list[str], description_files: list[str]) -> Datasets:
-    info_pattern = re.compile(r'coverage_(?P<coverage_type>\w+)_(?P<dataset>\w+).info')
     working_datasets = Datasets()
 
     # Find .info files
     for path in coverage_files:
         basename = os.path.basename(path)
-        m = info_pattern.match(basename)
-        if m is None:
+        file_info = extract_type_and_dataset(basename)
+        if file_info is None:
             print(f'ERROR: Coverage file does not follow the naming pattern and will not be added toto the datasets: {path}')
             print('Pass configuration file with "datasets" key properly set when packing coverage and description files which don\'t follow the default "coverage_{type}_{dataset}.info" convention')
             sys.exit(1)
 
-        coverage_type = m.group('coverage_type')
-        dataset = m.group('dataset')
-
+        coverage_type, dataset = file_info
         if dataset not in working_datasets:
             working_datasets[dataset] = {}
 

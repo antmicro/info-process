@@ -9,6 +9,7 @@ from . import extract
 from . import waive
 from . import compare
 from . import archive_diff
+from . import report
 import sys
 
 TRANSFORM_CMD = 'transform'
@@ -18,6 +19,7 @@ EXTRACT_CMD = 'extract'
 WAIVE_CMD = 'waive'
 COMPARE_CMD = 'compare'
 ARCHIVE_DIFF_CMD = 'archive-diff'
+REPORT_CMD = 'report'
 
 def main():
     parser = argparse.ArgumentParser()
@@ -43,6 +45,9 @@ def main():
     archive_diff.prepare_args(
         subparsers.add_parser(ARCHIVE_DIFF_CMD,
                               help='Create archive that contains diff between two archives'))
+    report.prepare_args(
+        subparsers.add_parser(REPORT_CMD,
+                              help='Generate a report summarizing coverage in .info files'))
 
     args = parser.parse_args()
 
@@ -61,6 +66,8 @@ def main():
         compare.main(args)
     elif cmd == ARCHIVE_DIFF_CMD:
         archive_diff.main(args)
+    elif cmd == REPORT_CMD:
+        report.main(args)
     else:
         print(f'Invalid subcommand: {cmd}')
         sys.exit(1)
