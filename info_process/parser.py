@@ -351,7 +351,7 @@ class Stream:
         record = Record(self)
         lines = []
         test_name = None  # This is per merged file, self.test_name is one for the output file.
-        for line in stream:
+        for line_num, line in enumerate(stream, start=1):
             line = line.strip()
             if line.startswith('#'):
                 continue # Skip comments
@@ -370,7 +370,11 @@ class Stream:
                 lines = []
                 record = Record(self)
             else:
-                prefix, data = split_entry(line)
+                try:
+                    prefix, data = split_entry(line)
+                except:
+                    print(f"Warning: Ignoring invalid line {line_num}: {line}")
+                    continue
                 record._update_stats(prefix, data, test_file)
                 lines.append((prefix, data))
 
