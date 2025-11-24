@@ -20,6 +20,23 @@ def missing_brda_handler(prefix: str, params: str, file: Record) -> str:
         file.add('BRDA', f'{line_number},0,toggle,{hit_count}')
     return params
 
+def normalize_path(path):
+    normalized_components = []
+    components = path.split("/")
+    for comp in components:
+        if comp == ".." and len(normalized_components) > 0:
+            normalized_components.pop()
+        elif comp not in ["", ".", ".."]:
+            normalized_components.append(comp)
+
+    normalized_path = "/" if path.startswith("/") else ""
+    normalized_path += "/".join(normalized_components)
+    return normalized_path
+
+def normalize_path_handler(prefix: str, path: str, file: Record) -> str:
+    normalized_path = normalize_path(path)
+    return normalized_path
+
 def create_filter_handler(pattern: str, negate: bool = False) -> EntryHandler:
     regex = re.compile(pattern)
     def handler(prefix: str, path: str, file: Record) -> str:
@@ -97,6 +114,8 @@ def prepare_args(parser: argparse.ArgumentParser):
                         help='Replace group number in BRDA with consecutive numbers for entries on the same line')
     parser.add_argument('--set-block-ids-step', type=int, default=1,
                         help='Block ID will be incremented after encountering the provided amount of matching entries')
+    parser.add_argument('--normalize-paths', action='store_true', default=False,
+                        help='Compress path in SF entries')
 
 def main(args: argparse.Namespace):
     # Default to a in-place modification if no output path is specified
@@ -104,6 +123,9 @@ def main(args: argparse.Namespace):
         args.output = args.input
 
     stream = Stream()
+
+    if args.normalize_paths:
+        stream.install_handler(['SF'], normalize_path_handler)
 
     for prefix in args.strip_file_prefix:
         stream.install_handler(['SF'], create_path_strip_handler(prefix))
