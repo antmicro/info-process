@@ -345,8 +345,8 @@ class Stream:
     def __str__(self) -> str:
         output: str = ""
         output += f"TN:{self.test_name or ''}\n"
-        output += "\n".join(str(record) for record in self.records.values())
-        return output + '\n'
+        output += "".join(str(record) + "\n" for record in self.records.values())
+        return output
 
     def _get_record_lines(self, stream: TextIO, test_file: Optional[str]) -> Generator[tuple[Record, list[tuple[str, str]]], Any, None]:
         record = Record(self)
