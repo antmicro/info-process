@@ -112,6 +112,29 @@ def create_test_list(out: TextIO, stream: Stream):
             out.write(';'.join(sorted(merged[line])))
             out.write('\n')
         out.write('end_of_record\n')
+    
+def strip_test_name_regex(test_name, pattern):
+    regex = re.compile(pattern)
+
+    def repl(match: re.Match) -> str:
+        groups = match.groups()
+
+        if not any(groups):
+            return ""
+
+        out = match.group(0)
+        for g in groups:
+            if g is not None:
+                out = out.replace(g, "")
+        return out
+
+    return regex.sub(repl, test_name)
+
+
+def strip_test_name_simple(test_name, pattern):
+    for string in pattern.split(','):
+            test_name = test_name.replace(string, '')
+    return test_name
 
 def prepare_args(parser: argparse.ArgumentParser):
     parser.add_argument('inputs', type=str, nargs='+', default=[],
@@ -120,8 +143,31 @@ def prepare_args(parser: argparse.ArgumentParser):
                         help="Output file's path")
     parser.add_argument('--test-list', type=str, default=None,
                         help='Output path for an optional file with names of tests which provided hits for each line during merging')
-    parser.add_argument('--test-list-strip', type=str, default='.info',
-                        help='Comma-separated set of strings that should be removed from paths before using them in a test list file, e.g., "coverage-,-all.info"; default: ".info"')
+    parser.add_argument(
+        "--test-list-strip",
+        type=str,
+        default=".info",
+        help=(
+            "Remove pattern from paths before using them in a test list file."
+            "In 'simple' mode patterns are treated as a comma-separated list of literal substrings "
+            '"(e.g. ".info",coverage-,-all.info"). '
+            "In 'regex' mode patterns are interpreted as regular expressions and "
+            "if a match contains no capturing groups, the entire match is removed; "
+            "if capturing groups are present, only the text matched by those groups is removed "
+            '(e.g r".info|_(\d+_)" transforms "./unique_123_reg.info" into "./unique_reg"). '
+            "Each sub-string of a path is tried to be matched only once and the leftmost sub-string is matched first, "
+            'for example "ab" pattern will convert "aaabbb" to "aabb" and "_._" pattern will convert "a_b_c_d_e" to "ace"'
+        )
+    )
+    parser.add_argument(
+        "--test-list-strip-mode",
+        choices=["simple", "regex"],
+        default="simple",
+        help=(
+            "Controls how patterns given in --test-list-strip are interpreted. "
+            "(see --test-list-strip description)"
+        )
+    )
     parser.add_argument('--test-list-full-path', type=bool,
                         help='Prevents automatic common prefix removing from paths before using them in a test list file')
     parser.add_argument('--sort-brda-names', action='store_true', default=False,
@@ -149,14 +195,17 @@ def main(args: argparse.Namespace):
         # of parts of file names. It doesn't include the final '/' though so we need to add it.
         common_prefix = '' if args.test_list_full_path else os.path.commonpath(args.inputs) + '/'
 
+    strip_test_name = \
+        strip_test_name_simple if args.test_list_strip_mode == "simple" \
+        else strip_test_name_regex
+    
     print('Merging input files...')
     for path in sorted(args.inputs):
         print(path)
         test_name = None
         if args.test_list is not None:
             test_name = path.removeprefix(common_prefix)
-            for string in args.test_list_strip.split(','):
-                test_name = test_name.replace(string, '')
+            test_name = strip_test_name(test_name,args.test_list_strip)
         with open(path, 'rt') as f:
             stream.merge(f, test_name)
 

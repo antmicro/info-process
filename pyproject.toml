@@ -11,5 +11,10 @@ dependencies = [
   "colorama>=0.4.6"
 ]
 
+[project.optional-dependencies]
+test = [
+  "pytest>=9.0.1"
+]
+
 [project.scripts]
 info-process = "info_process.info_process:main"
