@@ -64,6 +64,8 @@ def prepare_args(parser: argparse.ArgumentParser):
                         help='Use colours in report')
     parser.add_argument('--output-all', action='store_true',
                         help='Add unchanged files to the report')
+    parser.add_argument('--markdown', action='store_true',
+                        help='Output Markdown table (implies --table)')
 
 def compare_records(this_records: list[Record], other_records: list[Record]) -> list[CoverageCompare]:
     this_records_lines = { source_file: record.lines_per_prefix.get("DA", []) + record.lines_per_prefix.get("BRDA", [])
@@ -114,16 +116,17 @@ def prepare_table_data(name: str, comparison: CoverageCompare) -> list[str]:
         format_value(comparison.coverage_delta(), format="{:.2f}%"),
     ]
 
-def print_summary(table: bool, headers, data):
+def print_summary(table: bool, markdown: bool, headers, data):
     if table:
-        print(tabulate(data, headers=headers, tablefmt='rounded_grid'))
+        fmt = "github" if markdown else "rounded_grid"
+        print(tabulate(data, headers=headers, tablefmt=fmt))
     else:
         # CSV format
         print(','.join(headers))
         for line in data:
             print(','.join(line))
 
-def report_changes(use_table: bool, name: str, stream_this: Stream, stream_other: Stream, print_all_data: bool):
+def report_changes(use_table: bool, use_markdown: bool, name: str, stream_this: Stream, stream_other: Stream, print_all_data: bool):
     headers = ["File Name", "Coverage %", "Hit[Δ]", "Total[Δ]", "Coverage Δ %"]
     comparison_data = compare_records(stream_this.records, stream_other.records)
     if not print_all_data:
@@ -136,9 +139,9 @@ def report_changes(use_table: bool, name: str, stream_this: Stream, stream_other
     if len(data) == 0:
         return
     print(f"# {name} diff")
-    print_summary(use_table, headers, data)
+    print_summary(use_table, use_markdown, headers, data)
 
-def summary_with_categories(use_table: bool, streams_pairs: dict[str, tuple[Stream, Stream]], categories: list[str]):
+def summary_with_categories(use_table: bool, use_markdown: bool, streams_pairs: dict[str, tuple[Stream, Stream]], categories: list[str]):
     categorized_stats = {key: CoverageCompare("", 0, 0, 0, 0) for key in categories}
     for name, (this, other) in streams_pairs.items():
         if any(matching_categories:=[x for x in categories if x in name]):
@@ -155,7 +158,7 @@ def summary_with_categories(use_table: bool, streams_pairs: dict[str, tuple[Stre
         for name, comparison in categorized_stats.items()
     ]
 
-    print_summary(use_table, headers, data)
+    print_summary(use_table, use_markdown, headers, data)
 
 def extract_file_name(file_path: str) -> str:
     return os.path.splitext(os.path.basename(file_path))[0]
@@ -208,6 +211,8 @@ def unpack_existing_into_stream_pairs(path_this, path_other) -> dict[str, tuple[
 def main(args: argparse.Namespace):
     assert len(args.inputs) == 2,  "Currently only comparision between 2 files is supported"
 
+    args.table = args.table or args.markdown
+
     if args.colour:
         from colorama import init, Fore, Style
         init()
@@ -239,7 +244,7 @@ def main(args: argparse.Namespace):
 
     for name in sorted(stream_pairs.keys()):
         this, other = stream_pairs[name]
-        report_changes(args.table, name, this, other, args.output_all)
+        report_changes(args.table, args.markdown, name, this, other, args.output_all)
     if len(stream_pairs) > 1:
         print("# Summary")
-        summary_with_categories(args.table, stream_pairs, ["line","cond", "branch", "toggle"])
+        summary_with_categories(args.table, args.markdown, stream_pairs, ["line","cond", "branch", "toggle"])
