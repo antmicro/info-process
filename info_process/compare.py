@@ -66,6 +66,8 @@ def prepare_args(parser: argparse.ArgumentParser):
                         help='Add unchanged files to the report')
     parser.add_argument('--markdown', action='store_true',
                         help='Output Markdown table (implies --table)')
+    parser.add_argument('--only-summary', action='store_true',
+                        help='Output only summary table')
 
 def compare_records(this_records: list[Record], other_records: list[Record]) -> list[CoverageCompare]:
     this_records_lines = { source_file: record.lines_per_prefix.get("DA", []) + record.lines_per_prefix.get("BRDA", [])
@@ -242,9 +244,10 @@ def main(args: argparse.Namespace):
     else:
         raise Exception("Wrong files format. Both files must have the same extension. Supported extensions: `info` ,`zip`")
 
-    for name in sorted(stream_pairs.keys()):
-        this, other = stream_pairs[name]
-        report_changes(args.table, args.markdown, name, this, other, args.output_all)
+    if not args.only_summary:
+        for name in sorted(stream_pairs.keys()):
+            this, other = stream_pairs[name]
+            report_changes(args.table, args.markdown, name, this, other, args.output_all)
     if len(stream_pairs) > 1:
         print("# Summary")
         summary_with_categories(args.table, args.markdown, stream_pairs, ["line","cond", "branch", "toggle"])
