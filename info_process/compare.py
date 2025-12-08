@@ -250,4 +250,4 @@ def main(args: argparse.Namespace):
             report_changes(args.table, args.markdown, name, this, other, args.output_all)
     if len(stream_pairs) > 1:
         print("# Summary")
-        summary_with_categories(args.table, args.markdown, stream_pairs, ["line","cond", "branch", "toggle"])
+        summary_with_categories(args.table, args.markdown, stream_pairs, ["line", "branch", "cond", "toggle", "assert", "fsm"])
