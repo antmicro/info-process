@@ -176,11 +176,18 @@ def compare_records(this_records: dict[str, Record], other_records: dict[str, Re
         return len(dataset), sum(1 for l in dataset if is_line_covered(l))
 
     result = []
-    # We can discard all files that are present only in the `this_records` - files that have no lines now, have also no coverage
+    # Add CoverageCompare objects for all source files from the `other` file.
+    # Source files without coverage in `this` file will have `base_total` and `base_hits` unset.
     for file_name, other_lines in other_records_lines.items():
-        this_lines = this_records_lines.get(file_name, None)
-        base_total, base_hits = all_and_covered_lines_count(this_lines) if this_lines else (0,0)
+        this_lines = this_records_lines.pop(file_name, None)
+        base_total, base_hits = all_and_covered_lines_count(this_lines) if this_lines else (None, None)
         other_total, other_hits = all_and_covered_lines_count(other_lines)
+        result.append(CoverageCompare(file_name, base_total, other_total, base_hits, other_hits))
+
+    # Let's add CoverageCompare objects for all source files from `this` absent in `other`.
+    for file_name, this_lines in this_records_lines.items():
+        base_total, base_hits = all_and_covered_lines_count(this_lines)
+        other_total, other_hits = (None, None)
         result.append(CoverageCompare(file_name, base_total, other_total, base_hits, other_hits))
 
     return sorted(result)
