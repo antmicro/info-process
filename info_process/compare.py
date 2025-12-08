@@ -127,6 +127,8 @@ def prepare_args(parser: argparse.ArgumentParser):
                         help='Output Markdown table (implies --table)')
     parser.add_argument('--only-summary', action='store_true',
                         help='Output only summary table')
+    parser.add_argument('--report-missing', choices=['base', 'both', 'none', 'other'], default='both',
+                        help='Include missing source files in the report')
 
 def compare_records(this_records: dict[str, Record], other_records: dict[str, Record]) -> list[CoverageCompare]:
     # Complexity here is caused by line coverage for which "normal" lines only have DA entries
@@ -221,7 +223,8 @@ def print_summary(table: bool, markdown: bool, headers: list[str], data: list[li
         for line in data:
             print(','.join(line))
 
-def report_changes(use_table: bool, use_markdown: bool, name: str, stream_this: Stream, stream_other: Stream, print_all_data: bool):
+def report_changes(use_table: bool, use_markdown: bool, name: str, stream_this: Stream,
+                   stream_other: Stream, print_all_data: bool, report_missing: str):
     headers = ["File Name", "Coverage %", "Hit[Δ]", "Total[Δ]", "Coverage Δ %"]
     comparison_data = compare_records(stream_this.records, stream_other.records)
 
@@ -230,13 +233,40 @@ def report_changes(use_table: bool, use_markdown: bool, name: str, stream_this: 
 
     data = [
         prepare_table_data(comparison.file_name, comparison)
-        for comparison in comparison_data if should_be_printed(comparison)
+        for comparison in comparison_data if comparison.present_in_both and should_be_printed(comparison)
     ]
 
     if len(data) == 0:
         return
     print(f"# {name} diff")
     print_summary(use_table, use_markdown, headers, data)
+
+    if report_missing == 'none':
+        return
+
+    # Report files that are only in one of the streams.
+    headers = ["File Name", "Coverage %", "Hit", "Total"]
+    if report_missing in ['base', 'both']:
+        data = [[
+            comparison.file_name,
+            f"{comparison.base_coverage:.2f}%",
+            f"{comparison.base_hits}",
+            f"{comparison.base_total}",
+        ] for comparison in comparison_data if not comparison.present_in_other]
+        if data:
+            print(f"# {name} diff: Only in {stream_this.path}")
+            print_summary(use_table, use_markdown, headers, data)
+
+    if report_missing in ['both', 'other']:
+        data = [[
+            comparison.file_name,
+            f"{comparison.other_coverage:.2f}%",
+            f"{comparison.other_hits}",
+            f"{comparison.other_total}",
+        ] for comparison in comparison_data if not comparison.present_in_base]
+        if data:
+            print(f"# {name} diff: Only in {stream_other.path}")
+            print_summary(use_table, use_markdown, headers, data)
 
 def summary_with_categories(use_table: bool, use_markdown: bool, streams_pairs: dict[str, tuple[Stream, Stream]], categories: list[str]):
     categorized_stats = {key: CoverageCompare("", 0, 0, 0, 0) for key in categories}
@@ -283,8 +313,8 @@ def unzip_to_stringio(zip_file: ZipFile, name: str) -> io.StringIO:
     return io.StringIO(unzipped)
 
 def unpack_existing_into_stream_pairs(path_this, path_other) -> dict[str, tuple[Stream, Stream]]:
-    def unzip_to_stream(zip_file: ZipFile, name: str) -> Stream:
-        stream = Stream()
+    def unzip_to_stream(zip_file: ZipFile, name: str, path: str) -> Stream:
+        stream = Stream(path=path)
         info_io = unzip_to_stringio(zip_file, name)
         stream.load(info_io)
         return stream
@@ -301,11 +331,11 @@ def unpack_existing_into_stream_pairs(path_this, path_other) -> dict[str, tuple[
         ])
 
         for common_file in this_datasets & other_datasets:
-            stream_pairs[extract_file_name(common_file)] = (unzip_to_stream(this_zip, common_file), unzip_to_stream(other_zip, common_file))
+            stream_pairs[extract_file_name(common_file)] = (unzip_to_stream(this_zip, common_file, path_this), unzip_to_stream(other_zip, common_file, path_other))
         for this_only_file in this_datasets - other_datasets:
-            stream_pairs[extract_file_name(this_only_file)] = (unzip_to_stream(this_zip, this_only_file), Stream())
+            stream_pairs[extract_file_name(this_only_file)] = (unzip_to_stream(this_zip, this_only_file, path_this), Stream(path=path_other))
         for other_only_file in other_datasets - this_datasets:
-            stream_pairs[extract_file_name(other_only_file)] = (Stream(), unzip_to_stream(other_zip, other_only_file))
+            stream_pairs[extract_file_name(other_only_file)] = (Stream(path=path_this), unzip_to_stream(other_zip, other_only_file, path_other))
 
     return stream_pairs
 
@@ -337,7 +367,7 @@ def main(args: argparse.Namespace):
         return path.endswith(f".{expected_extension}")
 
     if all([extension_equals(x, "info") for x in args.inputs]):
-        stream_this, stream_other = Stream(), Stream()
+        stream_this, stream_other = Stream(path=path_this), Stream(path=path_other)
         with open(path_this, 'rt') as f_this, open(path_other, 'rt') as f_other:
             stream_this.load(f_this)
             stream_other.load(f_other)
@@ -350,7 +380,7 @@ def main(args: argparse.Namespace):
     if not args.only_summary:
         for name in sorted(stream_pairs.keys()):
             this, other = stream_pairs[name]
-            report_changes(args.table, args.markdown, name, this, other, args.output_all)
+            report_changes(args.table, args.markdown, name, this, other, args.output_all, args.report_missing)
     if len(stream_pairs) > 1:
         print("# Summary")
         summary_with_categories(args.table, args.markdown, stream_pairs, ["line", "branch", "cond", "toggle", "assert", "fsm"])
