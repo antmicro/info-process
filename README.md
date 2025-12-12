@@ -195,17 +195,20 @@ If this extension is not present then the results will be placed in a directory.
 
 ## Comparing coverage between two `.info` or two `.zip` files
 
-Comparison table can be created using
+Coverage archives or files can be compared with:
 ```bash
 info-process compare base_file.[zip|info] changed_file.[zip|info]
 ```
 
-which will output coverage, lines count, hit count and relative change between them for files for which any of them changed.
-To output summary that includes unchanged files, one might use the `--output-all` flag.
-Default output format is CSV, but can be changed to human-readable table using `--table` switch.
-It is also possible to add red and green colour for highlighting the relative changes between coverages using `--colour`.
+which will output coverage percentage, hits and total values with relative changes between the compared files.
+The report by default lists all source files with differences and ends with a comparison of summarized coverage numbers.
+The default output format is CSV, but it can be changed to human-readable table using the `--table` switch or to Markdown using the `--markdown` switch.
+When using a color terminal emulator, colors can be added to relative changes for visibility using the `--color` or `--colour` option.
 
-Please note that both files must have the same extension.
+The report contents can be controlled in several ways:
+* `--output-all` adds details for source files without any differences,
+* `--report-missing [none,base,other]` can be used to change the default behavior (`both`) of reporting details of sources files present only in one of the compared files,
+* `--only-summary` removes details of all source files so only the comparison of summarized coverage numbers is printed.
 
 ## Generating diff Coverview archive
 
