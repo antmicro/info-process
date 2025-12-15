@@ -354,8 +354,8 @@ class Stream:
         test_name = None  # This is per merged file, self.test_name is one for the output file.
         for line_num, line in enumerate(stream, start=1):
             line = line.strip()
-            if line.startswith('#'):
-                continue # Skip comments
+            if not line or line.startswith('#'):
+                continue # Skip comments and empty lines
             if line.startswith('TN:'):
                 if test_name:
                     print("WARNING: Multiple TN entries found")
