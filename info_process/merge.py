@@ -4,9 +4,21 @@
 import argparse
 from . import handlers
 from .parser import Stream, Record, split_brda, split_da, EntryHandler
+import json
 import os.path
 import re
-from typing import TextIO, Optional, Union
+import shutil
+from io import TextIOWrapper
+from itertools import chain
+from typing import Generator, IO, TextIO, Optional, Union
+from zipfile import ZIP_DEFLATED, ZipFile
+
+
+Dataset = dict[str, Union[str, list[str]]]
+Datasets = dict[str, Dataset]
+Sources = dict[bytes, bytes]
+CoverviewStreams = dict[str, Stream]
+
 
 def create_merge_da_handler() -> EntryHandler:
     cache: dict[tuple[Record, int], int] = {}
@@ -141,6 +153,8 @@ def prepare_args(parser: argparse.ArgumentParser):
                         help='.info files to be merged')
     parser.add_argument('--output', type=str, required=True,
                         help="Output file's path")
+    parser.add_argument('--file-format', choices=['info', 'coverview'], default='info',
+                        help='Controls the expected input/output format')
     parser.add_argument('--test-list', type=str, default=None,
                         help='Output path for an optional file with names of tests which provided hits for each line during merging')
     parser.add_argument(
@@ -172,10 +186,12 @@ def prepare_args(parser: argparse.ArgumentParser):
                         help='Prevents automatic common prefix removing from paths before using them in a test list file')
     parser.add_argument('--sort-brda-names', action='store_true', default=False,
                         help='Sort BRDA entries using their names')
+    parser.add_argument('--summary-name', type=str, default="total",
+                        help='Name for the summary entry (coverview)')
+    parser.add_argument('--summary-only', action='store_true', default=False,
+                        help='Only create summary entry (coverview)')
 
-def main(args: argparse.Namespace):
-    stream = Stream()
-
+def setup_info_stream(stream: Stream, args: argparse.Namespace) -> Stream:
     # NOTE: All regular handlers for `BRDA` and `DA` entries
     # should be placed BEFORE those two, as they make assumptions
     # about the order and amount of entries!!!
@@ -190,6 +206,11 @@ def main(args: argparse.Namespace):
     stream.install_category_handler(['LH'], handlers.create_hit_count_restore('DA'))
     stream.install_category_handler(['SF', 'FNF', 'FNH'], squash_misc)
 
+    return stream
+
+
+def merge_info_files(args: argparse.Namespace):
+    stream = setup_info_stream(Stream(), args)
     if args.test_list is not None:
         # os.path.commonpath is used instead of os.path.commonprefix to prevent automatic removal
         # of parts of file names. It doesn't include the final '/' though so we need to add it.
@@ -217,3 +238,156 @@ def main(args: argparse.Namespace):
         print(f'Saving test list in {args.test_list}')
         with open(args.test_list, 'wt') as f:
             create_test_list(f, stream)
+
+
+def get_sources(sources: IO[bytes]) -> Generator[tuple[bytes, bytes], None, None]:
+    prefix = b"### FILE: "
+    sources.seek(0)
+
+    filename = None
+    content = bytes()
+
+    while True:
+        line = sources.readline()
+        if not line:
+            break
+
+        if line.startswith(prefix):
+            if filename is not None:
+                yield filename, content
+            filename = line.removeprefix(prefix).rstrip()
+            content = bytes()
+
+        content += line
+
+    yield filename, content
+
+
+def load_coverview_archive(a: ZipFile) -> tuple[Datasets, Sources]:
+    with a.open("config.json", "r") as config_file:
+        datasets: Datasets = json.load(config_file)["datasets"]
+
+    with a.open("sources.txt", "r") as sources_file:
+        sources: Sources = dict(get_sources(sources_file))
+
+    return datasets, sources
+
+
+def get_new_sources(src: Sources, seen: set[bytes]) -> bytes:
+    out = bytes()
+    for name, data in src.items():
+        if name in seen:
+            continue
+
+        seen.add(name)
+        out += data
+
+    return out
+
+
+def generate_summary_files(
+    streams: CoverviewStreams,
+    output: ZipFile,
+    summary: Dataset,
+    name: str,
+):
+    for key, stream in streams.items():
+        fileprefix = f"{key}-{name}"
+
+        info = f"{fileprefix}.info"
+        summary.setdefault(key, []).append(info)
+
+        with output.open(info, 'w') as buf:
+            stream.save(TextIOWrapper(buf, "utf-8"))
+
+        desc = f"{fileprefix}.desc"
+        summary.setdefault(key, []).append(desc)
+        with output.open(desc, 'w') as buf:
+            create_test_list(TextIOWrapper(buf, "utf-8"), stream)
+
+
+def merge_coverview_summary(
+    streams: CoverviewStreams,
+    archive: ZipFile,
+    loaded_datasets: Datasets,
+    args: argparse.Namespace,
+):
+    entries = loaded_datasets.values()
+    keys = {k for d in entries for k in d}
+
+    for key in keys:
+        stream = streams.setdefault(key, setup_info_stream(Stream(), args))
+
+        files = sorted(
+            chain.from_iterable(
+                d[key] if isinstance(d[key], list) else list(d[key])
+                for d in entries
+                if key in d
+            )
+        )
+
+        for file in files:
+            if not file.endswith(".info"):
+                continue
+            with archive.open(file, "r") as buf:
+                stream.merge(TextIOWrapper(buf, "utf-8"), file)
+
+
+def merge_coverview_full(
+    source_archive: ZipFile,
+    output_archive: ZipFile,
+    loaded_datasets: Datasets,
+    merge_datasets: Datasets,
+    summary: Dataset,
+):
+    for dataset in loaded_datasets.values():
+        for key, entries in dataset.items():
+            files = entries if isinstance(entries, list) else list(entries)
+            summary.setdefault(key, []).extend(files)
+
+            for file in files:
+                with (
+                    source_archive.open(file, 'r') as fsrc,
+                    output_archive.open(file, 'w') as fdst,
+                ):
+                    shutil.copyfileobj(fsrc, fdst)
+
+    merge_datasets.update(loaded_datasets)
+
+
+def merge_coverview_files(args: argparse.Namespace):
+    with ZipFile(args.output, 'w', ZIP_DEFLATED) as output:
+        datasets: Datasets = {args.summary_name: dict()}
+        sources = bytes()
+        seen: set[bytes] = set()
+        streams: CoverviewStreams = dict()
+
+        summary_dataset = datasets[args.summary_name]
+
+        print("Merging input files...")
+        for file in sorted(args.inputs):
+            print(file)
+            with ZipFile(file, 'r') as archive:
+                loaded_datasets, loaded_sources = load_coverview_archive(archive)
+
+                sources += get_new_sources(loaded_sources, seen)
+                if args.summary_only:
+                    merge_coverview_summary(streams, archive, loaded_datasets, args)
+                else:
+                    merge_coverview_full(
+                        archive, output, loaded_datasets, datasets, summary_dataset
+                    )
+
+        if args.summary_only:
+            generate_summary_files(streams, output, summary_dataset, args.summary_name)
+
+        print(f'Saving merge output in {args.output}')
+        output.writestr("config.json", json.dumps({"datasets": datasets}))
+        output.writestr("sources.txt", sources)
+
+
+def main(args: argparse.Namespace):
+    if args.file_format == 'info':
+        merge_info_files(args)
+    else:
+        merge_coverview_files(args)
