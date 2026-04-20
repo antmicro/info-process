@@ -130,7 +130,7 @@ def prepare_args(parser: argparse.ArgumentParser):
     parser.add_argument('--report-missing', choices=['base', 'both', 'none', 'other'], default='both',
                         help='Include missing source files in the report')
 
-def compare_records(this_records: dict[str, Record], other_records: dict[str, Record]) -> list[CoverageCompare]:
+def compare_records(name: str, this_records: dict[str, Record], other_records: dict[str, Record]) -> list[CoverageCompare]:
     # Complexity here is caused by line coverage for which "normal" lines only have DA entries
     # but, e.g., lines inside FOR loops have BRDA entries which should be counted instead.
     #
@@ -165,12 +165,8 @@ def compare_records(this_records: dict[str, Record], other_records: dict[str, Re
     this_records_lines = get_entries_per_record(this_records)
     other_records_lines = get_entries_per_record(other_records)
 
-    assert len(set(this_records_lines.keys()) & set(other_records_lines.keys())) != 0, "\n".join([
-        "Files need to have at least one common source file to be comparable",
-        f"    this={this_records_lines.keys()}",
-        f"    other={other_records_lines.keys()}",
-    ])
-
+    if len(set(this_records_lines.keys()) & set(other_records_lines.keys())) == 0:
+        print(f"There are no common source files for {name}")
 
     def all_and_covered_lines_count(dataset: list[str]) -> tuple[int, int]:
         def is_line_covered(line_entry) -> bool:
@@ -226,7 +222,7 @@ def print_summary(table: bool, markdown: bool, headers: list[str], data: list[li
 def report_changes(use_table: bool, use_markdown: bool, name: str, stream_this: Stream,
                    stream_other: Stream, print_all_data: bool, report_missing: str):
     headers = ["File Name", "Coverage %", "Hit[Δ]", "Total[Δ]", "Coverage Δ %"]
-    comparison_data = compare_records(stream_this.records, stream_other.records)
+    comparison_data = compare_records(name, stream_this.records, stream_other.records)
 
     def should_be_printed(comparison: CoverageCompare) -> bool:
         return print_all_data or comparison.is_different
@@ -274,7 +270,7 @@ def summary_with_categories(use_table: bool, use_markdown: bool, streams_pairs: 
         if any(matching_categories:=[x for x in categories if x in name]):
             assert len(matching_categories) == 1, f"All Datasets should match only one category! Offending name: {name}; matching categories: {matching_categories}"
             category = matching_categories[0]
-            records = compare_records(this.records, other.records)
+            records = compare_records(name, this.records, other.records)
             categorized_stats[category] += reduce(lambda x,y : x+y, records)
         else:
             raise AssertionError(f"Dataset {name} does not fit to any of the categories: {categories}")
