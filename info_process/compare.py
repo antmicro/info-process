@@ -322,19 +322,19 @@ def unpack_existing_into_stream_pairs(path_this, path_other) -> dict[str, tuple[
     stream_pairs = {}
 
     with ZipFile(path_this, 'r') as this_zip, ZipFile(path_other, 'r') as other_zip:
-        this_datasets, _ = get_coverages_and_descriptions_sets(this_zip)
-        other_datasets, _ = get_coverages_and_descriptions_sets(other_zip)
-        assert len(this_datasets & other_datasets) > 0, "\n".join([
+        this_files, _ = get_coverages_and_descriptions_sets(this_zip)
+        other_files, _ = get_coverages_and_descriptions_sets(other_zip)
+        assert len(this_files & other_files) > 0, "\n".join([
             "Archives need to have at least one common dataset file to be comparable",
-            f"    {this_datasets=}",
-            f"    {other_datasets=}",
+            f"    {this_files=}",
+            f"    {other_files=}",
         ])
 
-        for common_file in this_datasets & other_datasets:
+        for common_file in this_files & other_files:
             stream_pairs[extract_file_name(common_file)] = (unzip_to_stream(this_zip, common_file, path_this), unzip_to_stream(other_zip, common_file, path_other))
-        for this_only_file in this_datasets - other_datasets:
+        for this_only_file in this_files - other_files:
             stream_pairs[extract_file_name(this_only_file)] = (unzip_to_stream(this_zip, this_only_file, path_this), Stream(path=path_other))
-        for other_only_file in other_datasets - this_datasets:
+        for other_only_file in other_files - this_files:
             stream_pairs[extract_file_name(other_only_file)] = (Stream(path=path_this), unzip_to_stream(other_zip, other_only_file, path_other))
 
     return stream_pairs
