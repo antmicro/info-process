@@ -208,7 +208,8 @@ When using a color terminal emulator, colors can be added to relative changes fo
 The report contents can be controlled in several ways:
 * `--output-all` adds details for source files without any differences,
 * `--report-missing [none,base,other]` can be used to change the default behavior (`both`) of reporting details of sources files present only in one of the compared files,
-* `--only-summary` removes details of all source files so only the comparison of summarized coverage numbers is printed.
+* `--only-summary` removes details of all source files so only the comparison of summarized coverage numbers is printed,
+* `--skip-type <COVERAGE_TYPE>` skips the given coverage type in the output (it can be used multiple times).
 
 ## Generating diff Coverview archive
 

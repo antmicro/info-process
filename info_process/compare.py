@@ -18,6 +18,11 @@ RED_FORMATTING=""
 NO_FORMATTING=""
 
 
+# Coverage types are named "categories" in this file for legacy reasons.
+# This also influences output order which is kinda sacred so let's always make sure it's preserved.
+SUPPORTED_CATEGORIES=["line", "branch", "cond", "toggle", "assert", "fsm"]
+
+
 @dataclass
 class CoverageCompare:
     """ Represents difference between two coverage files for one metric (line/branch/...) """
@@ -129,6 +134,9 @@ def prepare_args(parser: argparse.ArgumentParser):
                         help='Output only summary table')
     parser.add_argument('--report-missing', choices=['base', 'both', 'none', 'other'], default='both',
                         help='Include missing source files in the report')
+    # This generally applies to coverage types which are named "categories" in this file for legacy reasons.
+    parser.add_argument('--skip-type', choices=SUPPORTED_CATEGORIES, action='append', dest='skipped_categories',
+                        help='Skip the given coverage type in the output, it can be used multiple times')
 
 def compare_records(name: str, this_records: dict[str, Record], other_records: dict[str, Record]) -> list[CoverageCompare]:
     # Complexity here is caused by line coverage for which "normal" lines only have DA entries
@@ -308,7 +316,8 @@ def unzip_to_stringio(zip_file: ZipFile, name: str) -> io.StringIO:
     unzipped = zip_file.read(name).decode('utf-8')
     return io.StringIO(unzipped)
 
-def unpack_existing_into_stream_pairs(path_this, path_other) -> dict[str, tuple[Stream, Stream]]:
+
+def unpack_existing_into_stream_pairs(path_this: str, path_other: str, categories: list[str]) -> dict[str, tuple[Stream, Stream]]:
     def unzip_to_stream(zip_file: ZipFile, name: str, path: str) -> Stream:
         stream = Stream(path=path)
         info_io = unzip_to_stringio(zip_file, name)
@@ -325,6 +334,14 @@ def unpack_existing_into_stream_pairs(path_this, path_other) -> dict[str, tuple[
             f"    {this_files=}",
             f"    {other_files=}",
         ])
+
+        # Let's skip files belonging to categories (coverage types) that we won't be comparing.
+        filter_files = lambda files: set(
+                file_path for file_path in files
+                if any(cat in file_path for cat in categories)
+        )
+        this_files = filter_files(this_files)
+        other_files = filter_files(other_files)
 
         for common_file in this_files & other_files:
             stream_pairs[extract_file_name(common_file)] = (unzip_to_stream(this_zip, common_file, path_this), unzip_to_stream(other_zip, common_file, path_other))
@@ -355,6 +372,11 @@ def main(args: argparse.Namespace):
         NO_FORMATTING=Style.RESET_ALL
         RED_FORMATTING=Fore.RED
 
+    # We can't just work on sets here because sets would change the order and we need to preserve
+    # the order from SUPPORTED_CATEGORIES.
+    skipped_categories = args.skipped_categories or []
+    categories = [cat for cat in SUPPORTED_CATEGORIES if cat not in skipped_categories]
+
     stream_pairs = {}
     path_this, path_other = args.inputs[0], args.inputs[1]
     print(f"Comparing {path_this} against {path_other}")
@@ -369,7 +391,7 @@ def main(args: argparse.Namespace):
             stream_other.load(f_other)
         stream_pairs[f"{extract_file_name(path_this)}..{extract_file_name(path_other)}"] = (stream_this, stream_other)
     elif all([extension_equals(x, "zip") for x in args.inputs]):
-        stream_pairs = unpack_existing_into_stream_pairs(path_this, path_other)
+        stream_pairs = unpack_existing_into_stream_pairs(path_this, path_other, categories)
     else:
         raise Exception("Wrong files format. Both files must have the same extension. Supported extensions: `info` ,`zip`")
 
@@ -379,4 +401,4 @@ def main(args: argparse.Namespace):
             report_changes(args.table, args.markdown, name, this, other, args.output_all, args.report_missing)
     if len(stream_pairs) > 1:
         print("# Summary")
-        summary_with_categories(args.table, args.markdown, stream_pairs, ["line", "branch", "cond", "toggle", "assert", "fsm"])
+        summary_with_categories(args.table, args.markdown, stream_pairs, categories)
