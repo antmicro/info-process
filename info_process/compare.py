@@ -377,6 +377,9 @@ def main(args: argparse.Namespace):
     skipped_categories = args.skipped_categories or []
     categories = [cat for cat in SUPPORTED_CATEGORIES if cat not in skipped_categories]
 
+    assert len(categories) > 0, \
+        f"Skipping all supported coverage types was requested but at least one of them has to be left to compare: {skipped_categories}"
+
     stream_pairs = {}
     path_this, path_other = args.inputs[0], args.inputs[1]
     print(f"Comparing {path_this} against {path_other}")
@@ -395,10 +398,15 @@ def main(args: argparse.Namespace):
     else:
         raise Exception("Wrong files format. Both files must have the same extension. Supported extensions: `info` ,`zip`")
 
-    if not args.only_summary:
+    if args.only_summary:
+        assert len(categories) > 1 and len(stream_pairs) > 1, \
+            "The `--only-summary` option isn't supported when comparing only one coverage type or one pair of files" + \
+            f" (requested coverage types: {categories}, {stream_pairs=})"
+    else:
         for name in sorted(stream_pairs.keys()):
             this, other = stream_pairs[name]
             report_changes(args.table, args.markdown, name, this, other, args.output_all, args.report_missing)
+
     if len(stream_pairs) > 1:
         print("# Summary")
         summary_with_categories(args.table, args.markdown, stream_pairs, categories)
